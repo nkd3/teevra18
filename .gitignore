@@ -1,0 +1,18 @@
+﻿# Node / Python / env
+node_modules/
+.env
+.env.*.local
+__pycache__/
+*.pyc
+
+# Google Apps Script / clasp
+.appsscript.json
+
+# OS/Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Notebooks/cache
+.ipynb_checkpoints/
