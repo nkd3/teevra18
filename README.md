@@ -31,3 +31,9 @@ Place your data-flow image in docs/ and reference it here:
 ## Notes
 - Never commit secrets. .env is ignored by .gitignore.
 - Next stages add Zerodha data adapter (then DhanHQ drop-in), paper exec (+7s), and Telegram alerts.
+
+## Roadmap
+- Stage 1: Zerodha adapter
+- Stage 2: Paper exec
+- Stage 3: DhanHQ swap
+
