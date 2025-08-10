@@ -4,7 +4,7 @@
 
 ## Repo Layout
 - ridge/ — MarketBridge service (data in/out; adapters later: Zerodha → DhanHQ)
-- ppsscript/ — Google Apps Script sources (bound to Google Sheet)
+-  ppsscript/ — Google Apps Script sources (bound to Google Sheet)
 - docs/ — diagrams, runbooks (place data-flow here)
 - acktests/ — CSVs, notebooks, experiments
 
@@ -26,7 +26,7 @@
 
 ## Diagram
 Place your data-flow image in docs/ and reference it here:
-![Teevra18 Data Flow](docs/Teevra18_Data_Flow_Clean.jpeg)
+![Teevra18 Data Flow](docs/Teevra18_Data_Flow_Clean.png)
 
 ## Notes
 - Never commit secrets. .env is ignored by .gitignore.
