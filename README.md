@@ -1,4 +1,5 @@
 ﻿# Teevra 18
+ 
 
 **Goal:** Build once against small interfaces, then swap data/execution adapters (Zerodha → DhanHQ) without rewriting strategy/ops.
 
@@ -31,3 +32,5 @@ Place your data-flow image in docs/ and reference it here:
 ## Notes
 - Never commit secrets. .env is ignored by .gitignore.
 - Next stages add Zerodha data adapter (then DhanHQ drop-in), paper exec (+7s), and Telegram alerts.
+
+- Test Line
