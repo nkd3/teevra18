@@ -1,0 +1,33 @@
+name: Autodocs PR
+on:
+  push:
+    branches: [ "autodocs" ]
+  workflow_dispatch: {}
+
+jobs:
+  ensure-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - name: Open or update PR from autodocs to main
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            // Is there already an open PR from autodocs -> main?
+            const prs = await github.rest.pulls.list({
+              owner, repo, state: 'open', head: `${owner}:autodocs`, base: 'main'
+            });
+            if (prs.data.length > 0) {
+              core.info(`PR #${prs.data[0].number} already open.`);
+              return;
+            }
+            const title = `docs: Autodocs update (${new Date().toISOString().slice(0,10)})`;
+            const body = "Automated docs update from Apps Script (autodocs branch).";
+            const pr = await github.rest.pulls.create({
+              owner, repo, title, head: 'autodocs', base: 'main', body, draft: false
+            });
+            core.info(`Created PR #${pr.data.number}`);
