@@ -1,4 +1,4 @@
-# Teevra 18 — Live Documentation (v0.1.0)
+# Teevra 18 — Live Documentation (v0.2.0)
 A living record built from Google Sheets evidence + GitHub changes.
 
 ## Stage Map
