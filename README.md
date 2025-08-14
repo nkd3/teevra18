@@ -1,4 +1,5 @@
 ﻿# Teevra 18
+ 
 
 **Goal:** Build once against small interfaces, then swap data/execution adapters (Zerodha → DhanHQ) without rewriting strategy/ops.
 
