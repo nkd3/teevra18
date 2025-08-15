@@ -7,6 +7,6 @@ Stage | Criteria (from plan) | Status | Last Verified
 4 | ≥3 green paper days, Max DD ≤ cap; backtest ↔ paper coherent | In Progress | 2025-08-15T09:57:05.302Z
 5 | Single alerts (idempotent nonce), commands reliable | Complete | 2025-08-15T09:57:05.302Z
 6 | Dashboard updates 2–5 min; EOD Telegram summary | In Progress | 2025-08-15T09:57:05.302Z
-7 | Drift/anomaly triggers → PAUSE; chaos tests pass | In Progress | 2025-08-15T09:57:05.302Z
-8 | 5 live sessions within risk caps; clean logs | In Progress | 2025-08-15T09:57:05.302Z
-9 | Swap to DhanHQ via adapter; rerun Stage 1–2 acceptance | In Progress | 2025-08-15T09:57:05.302Z
+7 | Drift/anomaly triggers → PAUSE; chaos tests pass | Unknown | 2025-08-15T09:57:05.302Z
+8 | 5 live sessions within risk caps; clean logs | Unknown | 2025-08-15T09:57:05.302Z
+9 | Swap to DhanHQ via adapter; rerun Stage 1–2 acceptance | Unknown | 2025-08-15T09:57:05.302Z
