@@ -10,10 +10,10 @@ A living record built from Google Sheets evidence + GitHub changes.
 | 3 | Strategy+Validator+Breaker | In Progress | [evidence](https://docs.google.com/spreadsheets/d/12cW3edYEVoRlqpBecVZR01FaDzmIKt1VopxYNbScBrA/edit#gid=0) |
 | 4 | Backtesting & Paper | In Progress | [evidence](https://docs.google.com/spreadsheets/d/12cW3edYEVoRlqpBecVZR01FaDzmIKt1VopxYNbScBrA/edit#gid=0) |
 | 5 | Alerts & Observability | Complete | [evidence](https://docs.google.com/spreadsheets/d/12cW3edYEVoRlqpBecVZR01FaDzmIKt1VopxYNbScBrA/edit#gid=0) |
-| 6 | Dashboards & EOD | In Progress | [evidence](https://docs.google.com/spreadsheets/d/12cW3edYEVoRlqpBecVZR01FaDzmIKt1VopxYNbScBrA/edit#gid=0) |
-| 7 | Guardrails & Chaos | In Progress | [evidence](https://docs.google.com/spreadsheets/d/12cW3edYEVoRlqpBecVZR01FaDzmIKt1VopxYNbScBrA/edit#gid=0) |
-| 8 | Live (Manual Zerodha) | In Progress | [evidence](https://docs.google.com/spreadsheets/d/12cW3edYEVoRlqpBecVZR01FaDzmIKt1VopxYNbScBrA/edit#gid=0) |
-| 9 | DhanHQ Swap | In Progress | [evidence](https://docs.google.com/spreadsheets/d/12cW3edYEVoRlqpBecVZR01FaDzmIKt1VopxYNbScBrA/edit#gid=0) |
+| 6 | Dashboards & EOD | Unknown | [evidence](https://docs.google.com/spreadsheets/d/12cW3edYEVoRlqpBecVZR01FaDzmIKt1VopxYNbScBrA/edit#gid=0) |
+| 7 | Guardrails & Chaos | Unknown | [evidence](https://docs.google.com/spreadsheets/d/12cW3edYEVoRlqpBecVZR01FaDzmIKt1VopxYNbScBrA/edit#gid=0) |
+| 8 | Live (Manual Zerodha) | Unknown | [evidence](https://docs.google.com/spreadsheets/d/12cW3edYEVoRlqpBecVZR01FaDzmIKt1VopxYNbScBrA/edit#gid=0) |
+| 9 | DhanHQ Swap | Unknown | [evidence](https://docs.google.com/spreadsheets/d/12cW3edYEVoRlqpBecVZR01FaDzmIKt1VopxYNbScBrA/edit#gid=0) |
 
 ## What is Teevra 18?
 Strategy system staged from ingestion → candles → signals → backtest/paper → alerts → dashboards → guardrails → manual-live → DhanHQ swap. See the Stage docs for acceptance details.
