@@ -1,5 +1,5 @@
 # Stage 8 — Live (Manual Zerodha)
-**Status:** In Progress  
+**Status:** Unknown  
 **Evidence:** https://docs.google.com/spreadsheets/d/12cW3edYEVoRlqpBecVZR01FaDzmIKt1VopxYNbScBrA/edit#gid=0
 
 ## Summary
