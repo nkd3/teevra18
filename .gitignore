@@ -1,0 +1,6 @@
+﻿# Ignore local secrets and build artifacts
+.env
+node_modules/
+.DS_Store
+*.log
+appsscript/.clasp.json
