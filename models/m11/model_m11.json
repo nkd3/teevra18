@@ -1,0 +1,36 @@
+{
+  "created_at": "2025-09-01 17:05:21",
+  "db_path": "C:\\teevra18\\data\\teevra18.db",
+  "x_cols": [
+    "vwap_gap",
+    "ema_vs_price",
+    "l20_imbalance",
+    "exp_move_abs",
+    "vol_norm"
+  ],
+  "scaler": {
+    "mean": {
+      "vwap_gap": 0.29191583610187827,
+      "ema_vs_price": 0.0,
+      "l20_imbalance": 0.0,
+      "exp_move_abs": 0.0,
+      "vol_norm": 0.0
+    },
+    "std": {
+      "vwap_gap": 0.4352199693230679,
+      "ema_vs_price": 1.0,
+      "l20_imbalance": 1.0,
+      "exp_move_abs": 1.0,
+      "vol_norm": 1.0
+    }
+  },
+  "weights": {
+    "intercept": 0.0,
+    "vwap_gap": 1.2,
+    "ema_vs_price": 0.6,
+    "l20_imbalance": 0.9,
+    "exp_move_abs": 0.4,
+    "vol_norm": 0.2
+  },
+  "link": "logistic"
+}

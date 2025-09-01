@@ -1,0 +1,297 @@
+# C:\teevra18\teevra\dhan_ws.py
+import os, time, threading, asyncio
+from pathlib import Path
+from collections import deque
+from dataclasses import dataclass
+
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+import psutil
+
+from teevra.db import ensure_schema, connect, put_health, log
+
+# ---- Settings / Paths --------------------------------------------------------
+ENV = os.getenv("ENV","local")
+DB_PATH     = Path(os.getenv("DB_PATH",  r"C:\teevra18\data\teevra18.db"))
+DATA_DIR    = Path(os.getenv("DATA_DIR", r"C:\teevra18\data"))
+PARQUET_DIR = DATA_DIR / "parquet" / "ticks"
+LOG_DIR     = Path(os.getenv("LOG_DIR",  r"C:\teevra18\logs"))
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+DHAN_CLIENT_ID   = os.environ["DHAN_CLIENT_ID"]
+DHAN_ACCESS_TOKEN= os.environ["DHAN_ACCESS_TOKEN"]
+MODE = os.getenv("DHAN_FEED_MODE","QUOTE").upper().strip()  # QUOTE | FULL | TICKER
+
+BATCH_FLUSH_MS       = int(os.getenv("BATCH_FLUSH_MS","750"))
+SQLITE_BATCH_SIZE    = int(os.getenv("SQLITE_BATCH_SIZE","500"))
+PARQUET_FLUSH_SECS   = int(os.getenv("PARQUET_FLUSH_SECS","5"))
+PING_WARN_MS         = int(os.getenv("PING_WARN_MS","2000"))
+GAP_MAX_SECS         = int(os.getenv("GAP_MAX_SECS","3"))
+WATCHLIST_REFRESH_SECS = int(os.getenv("WATCHLIST_REFRESH_SECS","15"))
+
+# ---- Legacy SDK (v2.0.2) imports --------------------------------------------
+# IMPORTANT: we use the legacy module and NEVER touch internal connection attrs like ".closed"
+from dhanhq import marketfeed as mf  # legacy async API: DhanFeed, Quote/Full/Ticker
+
+MODE_CONST = {"QUOTE": mf.Quote, "FULL": mf.Full, "TICKER": mf.Ticker}[MODE]
+
+# ---- Data model --------------------------------------------------------------
+@dataclass
+class TickRow:
+    ts_utc: str
+    exchange_segment: int
+    security_id: int
+    mode: str
+    ltt_epoch: int|None
+    ltp: float|None
+    atp: float|None
+    last_qty: int|None
+    volume: int|None
+    buy_qty_total: int|None
+    sell_qty_total: int|None
+    oi: int|None
+    day_open: float|None
+    day_high: float|None
+    day_low: float|None
+    day_close: float|None
+    prev_close: float|None
+    recv_ts_utc: str
+
+def _now_utc_iso():
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
+
+# ---- Ingestor ----------------------------------------------------------------
+class Ingestor:
+    def __init__(self):
+        ensure_schema()
+        self.stop_evt = threading.Event()
+        self.buffer = deque()        # for SQLite
+        self.parquet_buffer = []     # for Parquet
+        self.lock = threading.Lock()
+        self.last_recv_ts = 0.0
+        self.cpu_warned = False
+
+        # live subscription set
+        self._wanted = set()         # set[ (seg, sid, MODE_CONST) ]
+        self._subscribed = set()
+
+        # async plumbing
+        self._loop = None
+        self._async_thread = None
+
+    # --- DB writes ------------------------------------------------------------
+    def _flush_sqlite(self):
+        if not self.buffer:
+            return
+        rows = []
+        with self.lock:
+            while self.buffer and len(rows) < SQLITE_BATCH_SIZE:
+                tr = self.buffer.popleft()
+                rows.append( (tr.ts_utc, tr.exchange_segment, tr.security_id, tr.mode, tr.ltt_epoch,
+                              tr.ltp, tr.atp, tr.last_qty, tr.volume, tr.buy_qty_total, tr.sell_qty_total,
+                              tr.oi, tr.day_open, tr.day_high, tr.day_low, tr.day_close, tr.prev_close, tr.recv_ts_utc) )
+        if rows:
+            from teevra.db import connect
+            with connect() as c:
+                c.executemany("""INSERT INTO ticks_raw(
+                   ts_utc,exchange_segment,security_id,mode,ltt_epoch,ltp,atp,last_qty,volume,
+                   buy_qty_total,sell_qty_total,oi,day_open,day_high,day_low,day_close,prev_close,recv_ts_utc
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", rows)
+
+    def _flush_parquet(self):
+        if not self.parquet_buffer:
+            return
+        df = pd.DataFrame(self.parquet_buffer)
+        self.parquet_buffer.clear()
+        if df.empty:
+            return
+        df["ds"] = pd.to_datetime(df["ts_utc"]).dt.date.astype(str)
+        table = pa.Table.from_pandas(df)
+        pq.write_to_dataset(table, root_path=str(PARQUET_DIR), partition_cols=["ds","exchange_segment","security_id"])
+
+    # --- Watchlist ------------------------------------------------------------
+    def _load_watchlist(self):
+        with connect() as c:
+            cur = c.execute("SELECT DISTINCT exchange_segment, security_id FROM universe_watchlist WHERE is_active=1")
+            rows = [(int(r[0]), str(int(r[1])), MODE_CONST) for r in cur.fetchall()]
+        return rows
+
+    def _refresh_wanted(self):
+        try:
+            wanted = set(self._load_watchlist())
+            self._wanted = wanted
+            from teevra.db import put_health
+            put_health("m1_subscribed_count", str(len(self._subscribed)))
+        except Exception as e:
+            log("ERROR","watchlist", str(e))
+
+    # --- Tick parsing ----------------------------------------------------------
+    def _parse_and_buffer(self, packet: dict):
+        # Legacy feed returns dict-like; map defensively
+        D = packet.get("Data") or packet
+        seg = int(D.get("ExchangeSegment", 2))
+        sid = int(D.get("SecurityId"))
+        ltt = D.get("LTT") or D.get("LastTradeTime")
+        row = TickRow(
+            ts_utc=_now_utc_iso(),
+            exchange_segment=seg,
+            security_id=sid,
+            mode=('F' if MODE_CONST==mf.Full else ('Q' if MODE_CONST==mf.Quote else 'T')),
+            ltt_epoch=int(ltt) if ltt is not None else None,
+            ltp=float(D.get("LTP")) if D.get("LTP") is not None else None,
+            atp=float(D.get("ATP")) if D.get("ATP") is not None else None,
+            last_qty=int(D.get("LastQty")) if D.get("LastQty") is not None else None,
+            volume=int(D.get("Volume")) if D.get("Volume") is not None else None,
+            buy_qty_total=int(D.get("TotalBuyQty")) if D.get("TotalBuyQty") is not None else None,
+            sell_qty_total=int(D.get("TotalSellQty")) if D.get("TotalSellQty") is not None else None,
+            oi=int(D.get("OI")) if D.get("OI") is not None else None,
+            day_open=float(D.get("Open")) if D.get("Open") is not None else None,
+            day_high=float(D.get("High")) if D.get("High") is not None else None,
+            day_low=float(D.get("Low")) if D.get("Low") is not None else None,
+            day_close=float(D.get("Close")) if D.get("Close") is not None else None,
+            prev_close=float(D.get("PrevClose")) if D.get("PrevClose") is not None else None,
+            recv_ts_utc=_now_utc_iso()
+        )
+        with self.lock:
+            self.buffer.append(row)
+            self.parquet_buffer.append(row.__dict__)
+        self.last_recv_ts = time.time()
+
+    # --- Threads: flusher & health -------------------------------------------
+    def _t_flushers(self):
+        last_sql = 0.0; last_par = 0.0
+        while not self.stop_evt.is_set():
+            now = time.perf_counter()
+            if (now - last_sql)*1000 >= BATCH_FLUSH_MS:
+                self._flush_sqlite(); last_sql = now
+            if (now - last_par) >= PARQUET_FLUSH_SECS:
+                self._flush_parquet(); last_par = now
+
+            # CPU
+            cpu = psutil.cpu_percent(interval=0)
+            put_health("m1_cpu", f"{cpu:.1f}")
+            if cpu > 40 and not self.cpu_warned:
+                log("WARN","ingest", f"CPU high {cpu:.1f}%"); self.cpu_warned = True
+
+            # Gap check
+            if time.time() - self.last_recv_ts > GAP_MAX_SECS:
+                put_health("m1_gap_warning", "1")
+            else:
+                put_health("m1_gap_warning", "0")
+
+            time.sleep(0.2)
+
+    # --- Async driver (LEGACY, no .closed touching) ---------------------------
+    async def _async_main(self):
+        """Single async task that connects, (re)subscribes, and consumes packets."""
+        put_health("m1_status","starting")
+        while not self.stop_evt.is_set():
+            try:
+                # Build feed fresh on each (re)connect
+                feed = mf.DhanFeed(DHAN_CLIENT_ID, DHAN_ACCESS_TOKEN, [], "v2")
+                await feed.connect()
+
+                put_health("m1_status","connected_waiting")
+
+                # Initial desired set
+                self._refresh_wanted()
+                sub_fn = getattr(feed, "subscribe_symbols", None) or getattr(feed, "subscribe", None)
+                unsub_fn = getattr(feed, "unsubscribe_symbols", None) or getattr(feed, "unsubscribe", None)
+
+                # Subscribe current wanted in chunks
+                CHUNK = 100
+                desired = list(self._wanted)
+                for i in range(0, len(desired), CHUNK):
+                    batch = desired[i:i+CHUNK]
+                    try:
+                        if sub_fn: await sub_fn(batch)
+                    except Exception as e:
+                        log("WARN","subscribe", f"{e}")
+
+                self._subscribed = set(desired)
+                put_health("m1_subscribed_count", str(len(self._subscribed)))
+
+                # Consumer + periodic watchlist refresh
+                last_refresh = 0.0
+                while not self.stop_evt.is_set():
+                    # Receive one packet
+                    try:
+                        pkt = await feed.get_instrument_data()
+                        if pkt:
+                            self._parse_and_buffer(pkt)
+                    except Exception as e:
+                        log("ERROR","consume", str(e))
+                        await asyncio.sleep(0.05)
+
+                    # Every WATCHLIST_REFRESH_SECS, reconcile subs
+                    now = time.time()
+                    if now - last_refresh >= WATCHLIST_REFRESH_SECS:
+                        last_refresh = now
+                        prev = set(self._subscribed)
+                        self._refresh_wanted()
+                        current = set(self._wanted)
+                        # Unsubscribe deltas
+                        to_del = list(prev - current)
+                        for i in range(0, len(to_del), CHUNK):
+                            batch = to_del[i:i+CHUNK]
+                            try:
+                                if unsub_fn: await unsub_fn(batch)
+                            except Exception as e:
+                                log("WARN","unsubscribe", f"{e}")
+                        # Subscribe additions
+                        to_add = list(current - prev)
+                        for i in range(0, len(to_add), CHUNK):
+                            batch = to_add[i:i+CHUNK]
+                            try:
+                                if sub_fn: await sub_fn(batch)
+                            except Exception as e:
+                                log("WARN","subscribe", f"{e}")
+                        self._subscribed = current
+                        put_health("m1_subscribed_count", str(len(self._subscribed)))
+
+                # graceful shutdown
+                disc = getattr(feed, "disconnect", None)
+                try:
+                    if disc: await disc()
+                except Exception:
+                    pass
+
+            except Exception as e:
+                # Critical WS or SDK error; backoff & retry
+                log("ERROR","driver_async", f"{e}; reconnecting soon")
+                put_health("m1_status","reconnecting")
+                await asyncio.sleep(1.0)
+
+        put_health("m1_status","stopped")
+
+    # --- Public lifecycle ------------------------------------------------------
+    def run(self):
+        ensure_schema()
+        PARQUET_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Start flusher thread
+        t_flush = threading.Thread(target=self._t_flushers, daemon=True)
+        t_flush.start()
+
+        # Run async driver in a dedicated thread/loop
+        def _runner():
+            try:
+                self._loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(self._loop)
+                self._loop.run_until_complete(self._async_main())
+            finally:
+                try:
+                    self._loop.close()
+                except Exception:
+                    pass
+
+        self._async_thread = threading.Thread(target=_runner, daemon=True)
+        self._async_thread.start()
+
+        # Block until stop
+        while not self.stop_evt.is_set():
+            time.sleep(0.5)
+
+    def stop(self):
+        self.stop_evt.set()

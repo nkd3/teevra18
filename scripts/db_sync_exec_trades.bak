@@ -1,0 +1,192 @@
+﻿# -*- coding: utf-8 -*-
+"""
+Schema + mapping aware sync: <stage table> -> exec_trades, then recompute KPIs.
+
+Paper PnL formula (prices mode):
+  pnl = (exit_price - entry_price) * qty - (fees_fill + fees_exit)
+  (for SHORT, the sign is flipped via side)
+
+Guards:
+- Skips rows without both timestamps (entry_time, exit_time) when allow_partial = False
+- Skips rows where exit_price is 0 (treated as incomplete)
+- Dedupe via unique index (stage, config_id, trade_id)
+"""
+import sys, json, sqlite3, subprocess, hashlib
+from pathlib import Path
+
+# --- bootstrap ---
+PROJECT_ROOT = Path(r"C:\teevra18")
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+CFG = json.loads(Path(r"C:\teevra18\teevra18.config.json").read_text(encoding="utf-8"))
+DB  = CFG["db_path"]
+MAP_PATH = Path(r"C:\teevra18\sync_mapping.json")
+CUSTOM = json.loads(MAP_PATH.read_text(encoding="utf-8-sig")) if MAP_PATH.exists() else {}
+
+DEFAULT_TABLE = {"Backtest": "backtest_orders", "Paper": "paper_orders"}
+
+LIKELY = {
+    "trade_id":  ["trade_id","order_id","id","exec_id","tx_id","signal_id","oid"],
+    "config_id": ["config_id","strategy_config_id","config","cfg_id","conf_id"],
+    "side":      ["side","direction","action","pos_side","buy_sell","position"],
+    "qty":       ["qty","qty_lots","lots","lot_qty","contracts","quantity","size","filled_qty","filled_lots"],
+    "entry_time":["filled_ts_utc","ts_fill","entry_time","ts_entry","entry_ts","open_time","start_time","time_in"],
+    "exit_time": ["closed_ts_utc","exit_time","ts_exit","exit_ts","close_time","end_time","time_out"],
+    "entry_px":  ["fill_price","entry_price","entry","avg_entry_price","buy_price","open","price_in","px_in"],
+    "exit_px":   ["exit_price","exit","avg_exit_price","sell_price","close","price_out","px_out"],
+    "fees":      ["fees","brokerage","charges","commission","cost"],
+    "fees_fill": ["charges_at_fill"],
+    "fees_exit": ["charges_at_exit"],
+    "pnl":       ["pnl","net_pnl","profit","pl","net_pl","pnl_net","pnl_gross"],
+}
+
+def side_to_longshort(val):
+    if val is None: return "LONG"
+    s = str(val).strip().upper()
+    if s in ("LONG","BUY","B","+","1"): return "LONG"
+    if s in ("SHORT","SELL","S","-","-1"): return "SHORT"
+    return "LONG"
+
+def to_float(v, default=None):
+    try: return float(v)
+    except: return default
+
+def to_int(v, default=1):
+    try: return int(v)
+    except: return default
+
+def table_exists(cur, name):
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (name,))
+    return cur.fetchone() is not None
+
+def get_columns(cur, name):
+    cur.execute(f"PRAGMA table_info({name})")
+    return [r[1] for r in cur.fetchall()]
+
+def first_present(colset, keys):
+    for k in keys:
+        if k in colset: return k
+    return None
+
+def build_mapper(colnames, overrides: dict):
+    colset = set(colnames); m={}
+    for key, likely in LIKELY.items():
+        ov = overrides.get(key)
+        m[key] = ov if (isinstance(ov,str) and ov in colnames) else first_present(colset, likely)
+    return m
+
+def pick(row, cols, mapped_col, key):
+    if mapped_col and mapped_col in cols:
+        v = row[mapped_col]
+        if v not in (None,""): return v
+    for cand in LIKELY[key]:
+        if cand in cols:
+            v = row[cand]
+            if v not in (None,""): return v
+    return None
+
+def compute_pnl_prices(entry_px, exit_px, qty, total_fees, side):
+    if entry_px is None or exit_px is None or qty is None: return None
+    if exit_px == 0: return None  # treat 0 exit as incomplete
+    gross = (exit_px - entry_px) * qty if side=="LONG" else (entry_px - exit_px) * qty
+    return gross - (total_fees or 0.0)
+
+def stable_trade_id(et, xt, ep, xp, qty, idx):
+    base = f"{et}|{xt}|{ep}|{xp}|{qty}|{idx}"
+    return hashlib.md5(base.encode("utf-8")).hexdigest()
+
+def stage_conf(stage):
+    sc = CUSTOM.get(stage, {})
+    return {
+        "table": sc.get("table") or DEFAULT_TABLE[stage],
+        "filter_by_config": bool(sc.get("filter_by_config", False)),
+        "allow_partial": bool(sc.get("allow_partial", False)),
+        "pnl_mode": sc.get("pnl_mode", "prices"),
+        "map": sc.get("map", {})
+    }
+
+def sync_and_compute(stage: str, config_id: int, label: str):
+    sc = stage_conf(stage)
+    con = sqlite3.connect(DB); con.row_factory = sqlite3.Row
+    cur = con.cursor()
+
+    if not table_exists(cur, sc["table"]):
+        con.close(); raise SystemExit(f"Source table not found: {sc['table']}")
+
+    cols = get_columns(cur, sc["table"])
+    print(f"Using table {sc['table']} with columns: {cols}")
+    mapper = build_mapper(cols, sc["map"])
+
+    where = ""
+    params = []
+    cfg_col = mapper["config_id"]
+    if sc["filter_by_config"] and cfg_col and (cfg_col in cols):
+        where = f" WHERE {cfg_col} = ?"; params = [config_id]
+    elif sc["filter_by_config"]:
+        print("Note: filter_by_config requested but column not found; proceeding without filter.")
+
+    rows = list(cur.execute(f"SELECT * FROM {sc['table']}{where}", params))
+    if not rows:
+        con.close(); print(f"No rows available in {sc['table']} for this query."); return
+
+    ins = """
+    INSERT OR IGNORE INTO exec_trades
+      (stage, config_id, trade_id, side, qty_lots, entry_time, exit_time, entry_price, exit_price, fees, pnl)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)
+    """
+    inserted = 0
+    for idx, r in enumerate(rows):
+        side = side_to_longshort(pick(r, cols, mapper["side"], "side"))
+        qty  = to_int(pick(r, cols, mapper["qty"],  "qty"), 1)
+
+        et  = pick(r, cols, mapper["entry_time"], "entry_time")
+        xt  = pick(r, cols, mapper["exit_time"],  "exit_time")
+        ep  = to_float(pick(r, cols, mapper["entry_px"],   "entry_px"))
+        xp  = to_float(pick(r, cols, mapper["exit_px"],    "exit_px"))
+
+        # fees: prefer fill+exit; else generic
+        fees_fill = to_float(pick(r, cols, mapper.get("fees_fill"), "fees_fill"), 0.0)
+        fees_exit = to_float(pick(r, cols, mapper.get("fees_exit"), "fees_exit"), 0.0)
+        fees_gen  = to_float(pick(r, cols, mapper.get("fees"),      "fees"), 0.0)
+        fees_total = (fees_fill or 0.0) + (fees_exit or 0.0)
+        if fees_total == 0.0: fees_total = fees_gen or 0.0
+
+        # Closed-only when allow_partial = False
+        if not et or not xt or ep is None or xp is None: 
+            continue
+        pnl = compute_pnl_prices(ep, xp, qty, fees_total, side)
+        if pnl is None:
+            continue
+
+        raw_tid  = pick(r, cols, mapper["trade_id"], "trade_id")
+        trade_id = str(raw_tid) if raw_tid not in (None,"") else stable_trade_id(et, xt, ep, xp, qty, idx)
+
+        cur.execute(ins, (stage, config_id, trade_id, side, qty, str(et), str(xt), ep, xp, fees_total, pnl))
+        inserted += 1
+
+    con.commit(); con.close()
+    if inserted == 0:
+        print("Nothing inserted (no complete trades matched)."); return
+
+    print(f"Synced {inserted} trades from {sc['table']} into exec_trades for stage={stage}, config_id={config_id}. Recomputing KPIs...")
+    proc = subprocess.run([sys.executable, r"C:\teevra18\scripts\compute_kpis.py", stage, str(config_id), label], capture_output=True, text=True)
+    if proc.stdout: print(proc.stdout)
+    if proc.returncode != 0:
+        if proc.stderr: print(proc.stderr)
+        raise SystemExit(f"compute_kpis failed with code {proc.returncode}")
+    print("KPI recompute complete.")
+
+def main():
+    if len(sys.argv) < 4:
+        print('Usage: python C:\\teevra18\\scripts\\db_sync_exec_trades.py <Stage> <ConfigId> "<KPI_Label>"')
+        raise SystemExit(1)
+    stage = sys.argv[1]
+    if stage not in ("Backtest","Paper"): raise SystemExit("Stage must be Backtest or Paper.")
+    try: cid = int(sys.argv[2])
+    except: raise SystemExit("ConfigId must be an integer.")
+    label = sys.argv[3]
+    sync_and_compute(stage, cid, label)
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,39 @@
+﻿{
+  "version": "m7-core-1.2",
+  "risk": {
+    "min_rr": 2.0,
+    "max_sl_per_lot": 1000.0,
+    "max_trades_per_day": 5
+  },
+  "rounding": {
+    "tick": 0.05
+  },
+  "universe": {
+    "limit_symbols": ["NIFTY", "BANKNIFTY"]
+  },
+  "groups": [
+    {
+      "name": "NIFTY-OPS",
+      "enabled": true,
+      "emit_mode": "base",
+      "strategies": [
+        { "id": "BO2", "label": "2-Bar Breakout", "enabled": true },
+        { "id": "RB1", "label": "Range Bounce 10%", "enabled": true }
+      ]
+    },
+    {
+      "name": "BANKNIFTY-OPS",
+      "enabled": true,
+      "emit_mode": "base",
+      "strategies": [
+        { "id": "BO2", "label": "2-Bar Breakout", "enabled": true },
+        { "id": "RB1", "label": "Range Bounce 10%", "enabled": true }
+      ]
+    }
+  ],
+  "gates": {
+    "use_depth": false,
+    "depth_imbalance_block": 0.60,
+    "use_chain": false
+  }
+}

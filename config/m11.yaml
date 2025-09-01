@@ -1,0 +1,32 @@
+prediction:
+  horizon_secs: 180
+  expected_move_method: "hybrid"
+  prob_min: 0.85
+  conviction_min: 80
+  p99_latency_ms: 100
+  max_trades_per_day: 5
+  rr_min: 2.0
+  sl_per_lot_max: 1000
+  instrument_universe: []
+
+storage:
+  sqlite_path: "C:\\teevra18\\data\\teevra18.db"
+  parquet_history_dir: "C:\\teevra18\\data\\history"
+  models_dir: "C:\\teevra18\\models\\m11"
+  logs_dir: "C:\\teevra18\\logs"
+
+features:
+  candles_view: "candles_1m"        # use table directly (less join risk)
+  depth_view:   "depth20_snap"      # optional
+  chain_view:   "option_chain_snap" # optional
+  keylevels_view: "key_levels_view" # optional
+
+evaluation:
+  oos_table: "pred_oos_log"
+  realized_window_secs: 180
+  accuracy_bins: [0.6, 0.7, 0.8, 0.85, 0.9]
+
+alerts:
+  telegram_enabled: true
+  topic: "Teevra18 — Predictive Alerts"
+  early_seconds: 180

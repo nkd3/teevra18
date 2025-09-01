@@ -1,0 +1,35 @@
+{
+  "Backtest": {
+    "table": "backtest_orders",
+    "filter_by_config": false,
+    "allow_partial": true,
+    "map": {
+      "trade_id":  "id",
+      "side":      "side",
+      "qty":       "qty",
+      "entry_time":"ts_entry",
+      "exit_time": "ts_exit",
+      "entry_px":  "entry",
+      "exit_px":   "exit",
+      "pnl":       "pnl"
+    }
+  },
+  "Paper": {
+    "table": "paper_orders",
+    "filter_by_config": false,
+    "allow_partial": false,
+    "pnl_mode": "prices",
+    "price_divisor": 100,
+    "map": {
+      "trade_id":   "id",
+      "side":       "side",
+      "qty":        "qty",
+      "entry_time": "filled_ts_utc",
+      "exit_time":  "closed_ts_utc",
+      "entry_px":   "fill_price",
+      "exit_px":    "exit_price",
+      "fees_fill":  "charges_at_fill",
+      "fees_exit":  "charges_at_exit"
+    }
+  }
+}

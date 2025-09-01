@@ -1,0 +1,32 @@
+﻿# secrets
+.env
+*.key
+*.pem
+*.p12
+*.crt
+*.cer
+
+# local data & logs
+data/
+logs/
+*.db
+*.sqlite
+*.parquet
+.parquet/
+.parq/
+
+# python & venv
+__pycache__/
+*.pyc
+.venv/
+
+# tooling bundles
+dist/
+build/
+*.spec
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

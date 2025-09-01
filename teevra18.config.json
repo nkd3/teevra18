@@ -1,0 +1,36 @@
+{
+    "project_root":  "C:\\teevra18",
+    "db_path":  "C:\\teevra18\\data\\teevra18.db",
+    "parquet_root":  "C:\\teevra18\\data\\parquet",
+    "assets_dir":  "C:\\teevra18\\assets",
+    "logo_png":  "C:\\teevra18\\assets\\Teevra18_Logo.png",
+    "telegram":  {
+                     "enabled":  true,
+                     "bot_token":  "8215465763:AAEO9WubobM5Eukus1BuSCNTk3ol29IXCXg",
+                     "chat_id":  "1278521942"
+                 },
+    "promotion":  {
+                      "allow_live_ready":  true,
+                      "default_stage":  "Backtest"
+                  },
+    "links":  {
+                  "notion_url":  "https://www.notion.so/25ce38d133c78026bafed8d9c431de57"
+              },
+    "notion":  {
+                   "token":  "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",
+                   "parent_page_id":  "25ce38d133c78026bafed8d9c431de57"
+               },
+    "schema":  {
+                   "signals_time_col":  "ts",
+                   "paper_orders_time_col":  "ts"
+               },
+    "ops":  {
+                "hb_stale_s":  20,
+                "runners":  [
+                                "fetcher",
+                                "signal-engine",
+                                "paper-broker"
+                            ],
+                "hb_fresh_s":  5
+            }
+}

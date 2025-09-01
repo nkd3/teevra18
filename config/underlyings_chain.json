@@ -1,0 +1,38 @@
+{
+  "groups": {
+    "indices": [
+      {
+        "underlying": "NIFTY",
+        "underlying_scrip": 13,
+        "underlying_seg": "IDX_I",
+        "enabled": true
+      },
+      {
+        "underlying": "BANKNIFTY",
+        "underlying_scrip": 25,
+        "underlying_seg": "IDX_I",
+        "enabled": true
+      }
+    ],
+    "nifty50": [
+      {
+        "underlying": "RELIANCE",
+        "underlying_scrip": 2885,
+        "underlying_seg": "NSE_FNO",
+        "enabled": true
+      },
+      {
+        "underlying": "HDFCBANK",
+        "underlying_scrip": 1333,
+        "underlying_seg": "NSE_FNO",
+        "enabled": true
+      },
+      {
+        "underlying": "INFY",
+        "underlying_scrip": 1594,
+        "underlying_seg": "NSE_FNO",
+        "enabled": true
+      }
+    ]
+  }
+}
