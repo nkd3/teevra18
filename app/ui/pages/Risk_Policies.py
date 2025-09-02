@@ -1,4 +1,5 @@
 ﻿# -*- coding: utf-8 -*-
+from t18_common.db import get_conn, table_exists, columns, read_df, first_existing
 import sys, json
 from pathlib import Path
 import streamlit as st
@@ -8,7 +9,7 @@ UI_DIR  = Path(__file__).resolve().parents[1]
 if str(APP_DIR) not in sys.path: sys.path.append(str(APP_DIR))
 if str(UI_DIR)  not in sys.path: sys.path.append(str(UI_DIR))
 
-from common.db import get_conn, table_exists, read_df
+from t18_common.db import get_conn, table_exists, read_df
 
 st.set_page_config(page_title="Risk Policies • TeeVra18", page_icon="⚖️", layout="wide")
 
@@ -169,3 +170,6 @@ with get_conn() as conn:
             conn.commit()
             st.success("New policy created from template.")
             st.rerun()
+
+
+

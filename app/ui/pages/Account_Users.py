@@ -1,9 +1,9 @@
-import streamlit as st
+﻿import streamlit as st
 import sqlite3
 from pathlib import Path
 from auth import require_role
 
-st.set_page_config(page_title="User Accounts • TeeVra18", page_icon="??", layout="wide")
+st.set_page_config(page_title="User Accounts â€¢ TeeVra18", page_icon="??", layout="wide")
 
 if not require_role(st.session_state, "admin"):
     st.error("Access denied. Admins only.")
@@ -24,3 +24,6 @@ st.dataframe(users, use_container_width=True, column_config={
     3: st.column_config.CheckboxColumn("Active"),
     4: st.column_config.TextColumn("Created At"),
 })
+
+
+

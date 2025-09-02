@@ -1,4 +1,5 @@
 ﻿# -*- coding: utf-8 -*-
+from t18_common.db import get_conn, table_exists, columns, read_df, first_existing
 from pathlib import Path
 import sys
 import streamlit as st
@@ -33,9 +34,9 @@ if "user" not in st.session_state:
 # --------------------------------------------------------------------
 # Imports (now that sys.path is set up)
 # --------------------------------------------------------------------
-from common.db import get_conn
-from common.metrics import get_today_pl, get_open_risk, get_signal_chips
-from common.policy import get_active_policy_row
+from t18_common.db import get_conn
+from t18_common.metrics import get_today_pl, get_open_risk, get_signal_chips
+from t18_common.policy import get_active_policy_row
 from ui_compat import metric_row
 from ui.components.ops_bar import render_ops_bar  # <— fixed import
 
@@ -135,3 +136,6 @@ with c3:
     st.page_link("pages/Risk_Policies.py",    label="Risk Policies",    icon="⚖️")
     st.page_link("pages/Alerts_Settings.py",  label="Alerts Settings",  icon="🔔")
     st.page_link("pages/Account_Users.py",    label="User Accounts",    icon="👥")
+
+
+

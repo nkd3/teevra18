@@ -66,3 +66,6 @@ if df.empty:
     st.info("No rows in `backtest_orders` yet. Create a backtest run to populate results.")
 else:
     st.dataframe(df, use_container_width=True, height=420)
+
+
+

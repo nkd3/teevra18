@@ -1,4 +1,5 @@
 ﻿# -*- coding: utf-8 -*-
+from t18_common.db import get_conn, table_exists, columns, read_df, first_existing
 import sys
 from pathlib import Path
 import pandas as pd
@@ -9,9 +10,9 @@ UI_DIR  = Path(__file__).resolve().parents[1]
 if str(APP_DIR) not in sys.path: sys.path.append(str(APP_DIR))
 if str(UI_DIR)  not in sys.path: sys.path.append(str(UI_DIR))
 
-from common.db import get_conn, table_exists, columns, read_df, first_existing
-from common.metrics import get_today_pl, get_open_risk, get_signal_chips
-from common.policy import get_active_policy_row
+from t18_common.db import get_conn, table_exists, columns, read_df, first_existing
+from t18_common.metrics import get_today_pl, get_open_risk, get_signal_chips
+from t18_common.policy import get_active_policy_row
 from ui_compat import show_image_auto, metric_row
 
 st.set_page_config(page_title="Trader • TeeVra18", page_icon="📈", layout="wide")
@@ -60,7 +61,7 @@ st.divider()
 
 # Tabs …
 # (unchanged rest of page)
-from common.db import table_exists, columns, read_df, first_existing
+from t18_common.db import table_exists, columns, read_df, first_existing
 tab_overview, tab_orders, tab_signals, tab_health = st.tabs(["Overview", "Orders", "Signals", "Health & Ops"])
 
 with tab_overview:
@@ -171,3 +172,6 @@ with tab_health:
                 st.dataframe(df_o, use_container_width=True, height=240)
         else:
             st.info("No `ops_log` table yet.")
+
+
+

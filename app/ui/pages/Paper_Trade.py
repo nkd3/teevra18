@@ -1,4 +1,5 @@
 ﻿# -*- coding: utf-8 -*-
+from t18_common.db import get_conn, table_exists, columns, read_df, first_existing
 import sys, json, time
 from pathlib import Path
 import streamlit as st
@@ -8,8 +9,8 @@ UI_DIR  = Path(__file__).resolve().parents[1]
 if str(APP_DIR) not in sys.path: sys.path.append(str(APP_DIR))
 if str(UI_DIR)  not in sys.path: sys.path.append(str(UI_DIR))
 
-from common.db import get_conn, table_exists, read_df
-from common.policy import get_active_policy_row
+from t18_common.db import get_conn, table_exists, read_df
+from t18_common.policy import get_active_policy_row
 
 st.set_page_config(page_title="Paper Trade • TeeVra18", page_icon="📝", layout="wide")
 user = st.session_state.get("user")
@@ -51,3 +52,6 @@ with get_conn() as conn:
     st.subheader("Recent Paper Runs")
     df_runs = read_df(conn, "SELECT id, kind, status, lab_id, started_by, started_at, ended_at, notes FROM runs WHERE kind='paper' ORDER BY id DESC LIMIT 50")
     st.dataframe(df_runs, use_container_width=True, height=360)
+
+
+

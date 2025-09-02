@@ -1,4 +1,5 @@
 ﻿# -*- coding: utf-8 -*-
+from t18_common.db import get_conn, table_exists, columns, read_df, first_existing
 import sys
 from pathlib import Path
 import streamlit as st
@@ -9,7 +10,7 @@ UI_DIR  = Path(__file__).resolve().parents[1]   # ...\app\ui
 if str(APP_DIR) not in sys.path: sys.path.append(str(APP_DIR))
 if str(UI_DIR)  not in sys.path: sys.path.append(str(UI_DIR))
 
-from common.db import get_conn, table_exists, columns, read_df
+from t18_common.db import get_conn, table_exists, columns, read_df
 from ui_compat import show_image_auto, metric_row
 
 st.set_page_config(page_title="Admin • TeeVra18", page_icon="🛡️", layout="wide")
@@ -65,3 +66,6 @@ with tab_health:
             st.dataframe(df_o, use_container_width=True, height=240)
         else:
             st.info("No `ops_log` yet.")
+
+
+
