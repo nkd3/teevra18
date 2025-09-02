@@ -58,7 +58,7 @@ else:
             st.page_link("pages/Paper_Trade.py", label="Paper Trade", icon="📝")
             st.page_link("pages/Live_Trading.py", label="Live Trading", icon="🟢")
         with c3:
-            st.page_link("pages/StrategyLab.py", label="Strategy Lab", icon="🧪")
+            st.page_link("pages/Strategy_Lab.py", label="Strategy Lab", icon="🧪")
             st.page_link("pages/Risk_Policies.py", label="Risk Policies", icon="⚖️")
             st.page_link("pages/Account_Users.py", label="User Accounts", icon="👥")
             st.page_link("pages/Trader_Dashboard.py", label="Trader Dashboard", icon="📈")
@@ -73,11 +73,12 @@ else:
             st.page_link("pages/Paper_Trade.py", label="Paper Trade", icon="📝")
             st.page_link("pages/Live_Trading.py", label="Live Trading", icon="🟢")
             st.page_link("pages/Trader_Dashboard.py", label="Trader Dashboard", icon="📈")
-            st.page_link("pages/StrategyLab.py", label="Strategy Lab", icon="🧪")
+            st.page_link("pages/Strategy_Lab.py", label="Strategy Lab", icon="🧪")
 
     st.divider()
     if st.button("Sign Out"):
         st.session_state.user = None
         st.rerun()
+
 
 
