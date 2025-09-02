@@ -1,19 +1,19 @@
 ﻿# -*- coding: utf-8 -*-
-from t18_common.db import get_conn, table_exists, columns, read_df, first_existing
 import sys
 from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from t18_common.db import get_conn, table_exists, columns, read_df  # (no first_existing import)
+from t18_common.metrics import get_today_pl, get_open_risk, get_signal_chips
+from t18_common.policy import get_active_policy_row
+from ui_compat import show_image_auto, metric_row
+
+# (optional) path bootstrap
 APP_DIR = Path(__file__).resolve().parents[2]
 UI_DIR  = Path(__file__).resolve().parents[1]
 if str(APP_DIR) not in sys.path: sys.path.append(str(APP_DIR))
 if str(UI_DIR)  not in sys.path: sys.path.append(str(UI_DIR))
-
-from t18_common.db import get_conn, table_exists, columns, read_df, first_existing
-from t18_common.metrics import get_today_pl, get_open_risk, get_signal_chips
-from t18_common.policy import get_active_policy_row
-from ui_compat import show_image_auto, metric_row
 
 st.set_page_config(page_title="Trader • TeeVra18", page_icon="📈", layout="wide")
 
@@ -29,12 +29,22 @@ with st.sidebar:
 
 st.title("Trader Dashboard")
 
+def first_existing(cols_list, candidates):
+    """Return first item from candidates that exists in cols_list."""
+    s = set(cols_list)
+    for c in candidates:
+        if c in s:
+            return c
+    return None
+
 # --- Active Policy banner (read-only)
 with get_conn() as conn:
     row, policy = get_active_policy_row(conn)
+
 if row is not None and policy:
     st.success(
-        f"**Active Policy:** {row['name']}  •  Max Trades/Day: {int(policy.get('max_trades_per_day',5))}  •  "
+        f"**Active Policy:** {row.get('name','(unnamed)')}  •  "
+        f"Max Trades/Day: {int(policy.get('max_trades_per_day',5))}  •  "
         f"SL ≤ ₹{int(policy.get('stoploss_rupees_per_lot',1000))}/lot  •  "
         f"Min R:R ≥ {float(policy.get('min_rr',2.0))}  •  "
         f"Daily Loss Cap: ₹{int(policy.get('daily_loss_limit_rupees',5000))}"
@@ -46,10 +56,23 @@ else:
 with get_conn() as conn:
     pl = get_today_pl(conn)
     risk = get_open_risk(conn)
-    chips = get_signal_chips(conn)
+    chips_raw = get_signal_chips(conn)
 
-g = chips.get("green",0); a = chips.get("amber",0); r = chips.get("red",0)
-chips_str = f"🟢 {g} · 🟠 {a} · 🔴 {r}"
+# normalize chips to dict(green/amber/red)
+chips = {"green":0, "amber":0, "red":0}
+if isinstance(chips_raw, dict):
+    chips.update({k: int(v) for k,v in chips_raw.items() if k in chips})
+elif isinstance(chips_raw, list):
+    for r in chips_raw:
+        s = str(r.get("signal","")).upper()
+        if s in ("GREEN","BUY","LONG","BULL","UP"):
+            chips["green"] += 1
+        elif s in ("AMBER","NEUTRAL","HOLD","FLAT"):
+            chips["amber"] += 1
+        elif s in ("RED","SELL","SHORT","BEAR","DOWN"):
+            chips["red"] += 1
+
+chips_str = f"🟢 {chips['green']} · 🟠 {chips['amber']} · 🔴 {chips['red']}"
 
 metric_row([
     {"label": "Today P/L", "value": ("₹ " + f"{pl:,.0f}") if isinstance(pl,(int,float)) else "n/a"},
@@ -60,8 +83,6 @@ metric_row([
 st.divider()
 
 # Tabs …
-# (unchanged rest of page)
-from t18_common.db import table_exists, columns, read_df, first_existing
 tab_overview, tab_orders, tab_signals, tab_health = st.tabs(["Overview", "Orders", "Signals", "Health & Ops"])
 
 with tab_overview:
@@ -172,6 +193,4 @@ with tab_health:
                 st.dataframe(df_o, use_container_width=True, height=240)
         else:
             st.info("No `ops_log` table yet.")
-
-
 
