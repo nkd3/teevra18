@@ -1,5 +1,5 @@
 # C:\teevra18\scripts\notion_autosync_upsert.py
-# VER: upsert-PO-1.1  (PO = Property + Optional body marker paragraph)
+# VER: upsert-PO-1.2  (properties + safe AUTODOC body; strict .env logging; db-wal ignore)
 
 import os, time, datetime, re, random, threading, queue
 from pathlib import Path
@@ -9,53 +9,97 @@ from notion_client.errors import APIResponseError
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent, FileCreatedEvent, FileMovedEvent
 
+# ----- Paths & constants -----
 ENV_PATH      = r"C:\teevra18\.env"
 ROOT_FALLBACK = r"C:\teevra18"
 RUNTIME_DIR   = Path(r"C:\teevra18_runtime")
 LOG_FILE      = RUNTIME_DIR / "autosync.log"
+
 SUMMARY_TAG   = "My Laptop <=> Notion DB"
 
-UPDATE_BODY = True                     # turn body mirroring on/off
-BODY_MARKER_PREFIX = "AUTODOC: "       # update/append paragraph with this prefix
-MAX_BODY_CHARS = 3600
+UPDATE_BODY = True                      # body mirroring via a single marker paragraph
+BODY_MARKER_PREFIX = "AUTODOC: "        # must match reset tool
+MAX_BODY_CHARS = 1950                   # leave headroom for prefix; Notion hard limit is 2000
+TRUNC_TAIL = "\n...\n[truncated {n} chars]"
+
+DEBOUNCE_S  = 1.2
+PAUSE_SEC   = 0.1
 
 RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
-def log(msg):
+
+def log(msg: str):
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"[{datetime.datetime.now().isoformat(timespec='seconds')}] {msg}\n")
 
-log("=== autosync start (VER upsert-PO-1.1, WITH_BODY) ===")
+log("=== autosync start (VER upsert-PO-1.2) ===")
 
-load_dotenv(ENV_PATH, override=True)
-NOTION_TOKEN = os.getenv("NOTION_TOKEN")
-DATABASE_ID  = os.getenv("NOTION_DB")
-ROOT_DIR     = Path(os.getenv("AUTOSYNC_ROOT", ROOT_FALLBACK))
+# ----- Robust .env loading with extra diagnostics -----
+def load_env_strict():
+    loaded = load_dotenv(ENV_PATH, override=True)
+    tok = os.getenv("NOTION_TOKEN") or ""
+    db  = os.getenv("NOTION_DB") or ""
+    # Fallback: very simple manual parse if load_dotenv returned False
+    if not loaded or not tok or not db:
+        try:
+            with open(ENV_PATH, "r", encoding="utf-8") as fh:
+                for line in fh:
+                    if line.startswith("NOTION_TOKEN=") and not tok:
+                        tok = line.strip().split("=", 1)[1]
+                    elif line.startswith("NOTION_DB=") and not db:
+                        db = line.strip().split("=", 1)[1]
+        except Exception as e:
+            log(f"[env] FATAL cannot read .env: {e}")
+    # Log diagnostics
+    tok_prefix = tok[:4] if tok else ""
+    tok_len    = len(tok)
+    db_len     = len(db)
+    log(f"[env] .env loaded={loaded} token_prefix={tok_prefix} token_len={tok_len} db_len={db_len}")
+    return tok, db
+
+NOTION_TOKEN, DATABASE_ID = load_env_strict()
+ROOT_DIR = Path(os.getenv("AUTOSYNC_ROOT", ROOT_FALLBACK))
 if not NOTION_TOKEN or not DATABASE_ID:
     log("FATAL: NOTION_TOKEN/NOTION_DB missing"); raise SystemExit(1)
 
 notion = Client(auth=NOTION_TOKEN)
 
-# ----- filters -----
-IGNORED_DIRS = {".git", ".venv", "__pycache__", ".idea", ".vscode", "dist", "build", "logs", RUNTIME_DIR.name}
-IGNORED_EXTS = {".png", ".jpg", ".jpeg", ".ico", ".gif", ".zip", ".7z",
-                ".parquet", ".db", ".sqlite", ".sqlite3", ".pkl", ".pdf",
-                ".cmd", ".bak"}
-TEXT_HINT_EXTS = {".py", ".txt", ".md", ".json", ".yaml", ".yml", ".js", ".ts", ".css", ".html", ".ini", ".cfg", ".log"}
+# ----- Filters -----
+IGNORED_DIRS = {
+    ".git", ".venv", "__pycache__", ".idea", ".vscode",
+    "dist", "build", "logs", RUNTIME_DIR.name,
+}
+IGNORED_EXTS = {
+    ".png", ".jpg", ".jpeg", ".ico", ".gif",
+    ".zip", ".7z", ".parquet", ".db", ".sqlite", ".sqlite3", ".pkl", ".pdf",
+    ".cmd", ".bak",
+}
+IGNORED_SUFFIXES = {".db-wal", ".db-shm"}   # sqlite journaling files
 
-DEBOUNCE_S  = 1.2
-PAUSE_SEC   = 0.1
+TEXT_HINT_EXTS = {
+    ".py", ".txt", ".md", ".json", ".yaml", ".yml", ".js", ".ts",
+    ".css", ".html", ".ini", ".cfg", ".log",
+}
+
 stage_pattern = re.compile(r"(\\|/)(M[0-1]?[0-9])(\\|/)")
 
 def is_ignored(path: Path) -> bool:
-    if any(part in IGNORED_DIRS for part in path.parts): return True
-    if path.suffix.lower() in IGNORED_EXTS: return True
+    if any(part in IGNORED_DIRS for part in path.parts):
+        return True
+    # suffix checks first (e.g., file.db-wal)
+    for s in IGNORED_SUFFIXES:
+        if str(path).endswith(s):
+            return True
+    if path.suffix.lower() in IGNORED_EXTS:
+        return True
     return False
 
 def looks_like_text(path: Path) -> bool:
     if path.suffix.lower() in TEXT_HINT_EXTS: return True
     try:
-        with open(path, "rb") as f: return b"\x00" not in f.read(512)
-    except Exception: return False
+        with open(path, "rb") as f:
+            return b"\x00" not in f.read(512)
+    except Exception:
+        return False
 
 def infer_stage(relpath: str) -> str:
     m = stage_pattern.search(relpath)
@@ -73,6 +117,7 @@ def query_latest_by_file(relpath: str):
         }
     )
 
+# ----- DB properties / index -----
 DB_PROPS = notion.databases.retrieve(DATABASE_ID).get("properties", {})
 log(f"[startup] DB properties: {list(DB_PROPS.keys())}")
 
@@ -88,7 +133,7 @@ def ensure_page(rel: str, stage: str) -> str:
             pid = results[0]["id"]; FILE_INDEX[rel] = pid; return pid
     except APIResponseError as e:
         log(f"[query latest] {e}")
-    # create minimal page (properties only)
+    # create new
     attempts = 0
     while True:
         try:
@@ -126,10 +171,27 @@ def update_props(page_id: str, rel: str, stage: str):
                 attempts += 1; backoff_sleep(attempts); continue
             raise
 
-def upsert_marker_paragraph(page_id: str, text: str):
-    """Find a paragraph starting with BODY_MARKER_PREFIX and replace its text.
-       If not found, append a new paragraph. No deletes -> low conflict."""
-    snippet = text if len(text) <= MAX_BODY_CHARS else (text[:MAX_BODY_CHARS] + "\n...\n[truncated]")
+# ----- Safe AUTODOC body upsert (clamped) -----
+def _clamp_for_body(text: str) -> str:
+    # Make sure BODY_MARKER_PREFIX + content <= 2000
+    max_payload = MAX_BODY_CHARS
+    if len(text) > max_payload:
+        over = len(text) - max_payload
+        text = text[:max_payload] + TRUNC_TAIL.format(n=over)
+    # If after adding tail we overshoot, hard clamp
+    max_payload = MAX_BODY_CHARS
+    if len(text) > max_payload:
+        text = text[:max_payload]
+    return text
+
+def upsert_marker_paragraph(page_id: str, full_text: str):
+    """Update or append one paragraph starting with BODY_MARKER_PREFIX.
+       No deletes, no multi-block writes to avoid conflicts."""
+    snippet = _clamp_for_body(full_text)
+    content = BODY_MARKER_PREFIX + snippet
+    # Secondary safety: Notion limit ~2000 per rich_text item
+    if len(content) > 1990:
+        content = content[:1990]
 
     try:
         kids = notion.blocks.children.list(block_id=page_id, page_size=50).get("results", [])
@@ -138,8 +200,10 @@ def upsert_marker_paragraph(page_id: str, text: str):
             rts = b["paragraph"].get("rich_text", [])
             plain = "".join(rt.get("plain_text", "") for rt in rts)
             if plain.startswith(BODY_MARKER_PREFIX):
-                new_rt = [{"type": "text", "text": {"content": BODY_MARKER_PREFIX + snippet}}]
-                notion.blocks.update(block_id=b["id"], paragraph={"rich_text": new_rt})
+                notion.blocks.update(
+                    block_id=b["id"],
+                    paragraph={"rich_text": [{"type": "text", "text": {"content": content}}]},
+                )
                 return
     except APIResponseError as e:
         log(f"[body] list fail: {e}")
@@ -150,16 +214,13 @@ def upsert_marker_paragraph(page_id: str, text: str):
             children=[{
                 "object": "block",
                 "type": "paragraph",
-                "paragraph": {
-                    "rich_text": [{"type": "text", "text": {"content": BODY_MARKER_PREFIX + snippet}}]
-                },
+                "paragraph": {"rich_text": [{"type": "text", "text": {"content": content}}]},
             }],
         )
     except APIResponseError as e:
         log(f"[body] append fail: {e}")
 
-
-# single worker to serialize writes
+# ----- Work queue (serialize writes) -----
 work_q: "queue.Queue[str]" = queue.Queue()
 in_q: set[str] = set()
 lock = threading.Lock()
@@ -179,17 +240,16 @@ def worker():
             log(f"[TARGET] {rel} -> {pid}")
             update_props(pid, rel, stage)
 
-            # Body update (snippet mirror)
             if UPDATE_BODY:
                 try:
                     file_path = ROOT_DIR / rel
-                    content = ""
+                    text = ""
                     try:
                         with open(file_path, "r", encoding="utf-8", errors="ignore") as fh:
-                            content = fh.read()
+                            text = fh.read()
                     except Exception as ee:
-                        content = f"[unable to read: {ee}]"
-                    upsert_marker_paragraph(pid, content)
+                        text = f"[unable to read: {ee}]"
+                    upsert_marker_paragraph(pid, text)
                 except Exception as e:
                     log(f"[body] upsert fail {rel}: {e}")
 
@@ -203,6 +263,7 @@ def worker():
 
 threading.Thread(target=worker, daemon=True).start()
 
+# ----- Watcher -----
 class Handler(FileSystemEventHandler):
     def _maybe(self, path: Path):
         if path.is_dir(): return

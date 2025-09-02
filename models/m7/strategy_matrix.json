@@ -1,0 +1,62 @@
+{
+  "drivers": [
+    "NIFTY",
+    "BANKNIFTY"
+  ],
+  "targets": {
+    "NIFTY": [
+      "OPTIDX",
+      "FUTIDX"
+    ],
+    "BANKNIFTY": [
+      "OPTIDX",
+      "FUTIDX"
+    ]
+  },
+  "equities": [
+    "AXISBANK",
+    "BHARTIARTL",
+    "HDFCBANK",
+    "ICICIBANK",
+    "INFY",
+    "ITC",
+    "LT",
+    "RELIANCE",
+    "SBIN",
+    "TCS"
+  ],
+  "equity_targets": {
+    "EQUITY_DEFAULT": [
+      "CASH",
+      "FUTSTK",
+      "OPTSTK"
+    ]
+  },
+  "risk": {
+    "rr_min": 2.0,
+    "sl_cap_per_lot": 1000,
+    "max_trades_per_day": 50,
+    "sl_method": "ATR",
+    "tp_method": "RR",
+    "tp_factor": 2.0
+  },
+  "filters": {
+    "min_liquidity_lots": 1,
+    "spread_buffer_ticks": 1
+  },
+  "strategy_catalog": [
+    {
+      "strategy_id": "ema_vwap_atr",
+      "name": "EMA(9/21)+VWAP+ATR",
+      "version": "1.0",
+      "enabled": true,
+      "params": {
+        "ema_fast": 9,
+        "ema_slow": 21,
+        "atr_len": 14,
+        "vwap_filter": true,
+        "min_ticks": 5
+      }
+    }
+  ]
+}
