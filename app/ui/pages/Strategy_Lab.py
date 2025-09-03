@@ -13,7 +13,6 @@ except Exception:
 
 # --- Single Source of Truth: resolve DB from teevra18.config.json (fallback to C:\teevra18\data\teevra18.db)
 def _resolve_db_path():
-    # Try both root and configs/ locations
     for p in [
         os.path.join(os.getcwd(), "teevra18.config.json"),
         os.path.join(os.getcwd(), "configs", "teevra18.config.json"),
@@ -28,7 +27,6 @@ def _resolve_db_path():
                     return dbp
             except Exception:
                 pass
-    # Fallback dev path
     return r"C:\teevra18\data\teevra18.db"
 
 DB_PATH = _resolve_db_path()
@@ -70,7 +68,7 @@ def normalize_key(name: str) -> str:
 # --- Ensure required tables exist (idempotent)
 def _ensure_schema(conn: sqlite3.Connection):
     cur = conn.cursor()
-    # strategies_catalog – your existing Lab table
+    # strategies_catalog – Lab history
     cur.execute("""
         CREATE TABLE IF NOT EXISTS strategies_catalog(
             rowid INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,7 +79,7 @@ def _ensure_schema(conn: sqlite3.Connection):
             source_mode TEXT NOT NULL
         );
     """)
-    # strategy_config – Admin’s master list (used by Admin_Config)
+    # strategy_config – Admin master list
     cur.execute("""
         CREATE TABLE IF NOT EXISTS strategy_config(
             id TEXT PRIMARY KEY,
@@ -160,14 +158,14 @@ if mode == "Graphical":
             payload = {ind: {"params": params.get(ind, {})} for ind in selected}
             strategy_id = f"lab_{uuid4().hex[:8]}"
 
-            # 1) Save as before (Lab’s own catalog)
+            # 1) Save in Lab catalog
             cur.execute(
                 "INSERT INTO strategies_catalog(strategy_id,name,params_json,enabled,source_mode) VALUES (?,?,?,?,?)",
                 (strategy_id, strat_name.strip(), json.dumps(payload), 1, "graphical"),
             )
             conn.commit()
 
-            # 2) NEW: Upsert into Admin’s master list so it appears in /Admin_Config
+            # 2) Auto-upsert into Admin master list
             _upsert_strategy_config(conn, strategy_id, strat_name.strip())
 
             st.success(f"Saved {len(selected)} indicators as '{strat_name.strip()}' (id={strategy_id})")
@@ -213,7 +211,7 @@ Bollinger Bands:
             )
             conn.commit()
 
-            # 2) Upsert into Admin’s master list
+            # 2) Auto-upsert into Admin master list
             _upsert_strategy_config(conn, strategy_id, strat_name_script.strip())
 
             st.success(f"Imported & saved '{strat_name_script.strip()}' (id={strategy_id})")
