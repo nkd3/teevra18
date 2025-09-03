@@ -4,6 +4,7 @@
     "parquet_root":  "C:\\teevra18\\data\\parquet",
     "assets_dir":  "C:\\teevra18\\assets",
     "logo_png":  "C:\\teevra18\\assets\\Teevra18_Logo.png",
+    "sqlite": "C:\\teevra18\\data\\teevra18.db",
     "telegram":  {
                      "enabled":  true,
                      "bot_token":  "8215465763:AAEO9WubobM5Eukus1BuSCNTk3ol29IXCXg",
