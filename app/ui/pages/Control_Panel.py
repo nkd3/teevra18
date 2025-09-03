@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from t18_common.db import get_conn, table_exists, columns, read_df, first_existing
 from pathlib import Path
 import sys
@@ -136,6 +136,7 @@ with c3:
     st.page_link("pages/Risk_Policies.py",    label="Risk Policies",    icon="⚖️")
     st.page_link("pages/Alerts_Settings.py",  label="Alerts Settings",  icon="🔔")
     st.page_link("pages/Account_Users.py",    label="User Accounts",    icon="👥")
+
 
 
 

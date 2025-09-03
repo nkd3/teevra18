@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import sys
 from pathlib import Path
 import streamlit as st
@@ -66,6 +66,7 @@ if df.empty:
     st.info("No rows in `backtest_orders` yet. Create a backtest run to populate results.")
 else:
     st.dataframe(df, use_container_width=True, height=420)
+
 
 
 

@@ -1,12 +1,8 @@
-# C:\teevra18\app\pages\Status_API_Connectivity.py
-# M12 Control Panel: Status Window — API Connectivity
-# Requires: streamlit, requests, pydantic (optional but recommended)
-
+# -*- coding: utf-8 -*-
 import json
 import os
 import sqlite3
 import tempfile
-import time
 from pathlib import Path
 from typing import Dict, Tuple
 
@@ -27,7 +23,7 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> Dict:
 CFG = load_config()
 
 def get_cfg(path: str, default=None):
-    # simple dotted-path reader, e.g. get_cfg("telegram.bot_token")
+    # dotted-path reader, e.g. get_cfg("telegram.bot_token")
     node = CFG
     for part in path.split("."):
         if isinstance(node, dict) and part in node:
@@ -37,7 +33,7 @@ def get_cfg(path: str, default=None):
     return node
 
 # -----------------------------
-# Status check utilities
+# Status helpers
 # -----------------------------
 def status_bad(message: str) -> Tuple[str, str]:
     return "🔴", message
@@ -48,7 +44,7 @@ def status_warn(message: str) -> Tuple[str, str]:
 def status_ok(message: str) -> Tuple[str, str]:
     return "🟢", message
 
-def with_timeout():
+def with_timeout() -> int:
     return int(get_cfg("network.timeout_seconds", 6))
 
 # -----------------------------
@@ -57,7 +53,8 @@ def with_timeout():
 def check_sqlite() -> Tuple[str, str]:
     db_path = get_cfg("db_path", r"C:\teevra18\data\teevra18.db")
     try:
-        if not Path(db_path).exists():
+        p = Path(db_path)
+        if not p.exists():
             return status_bad(f"DB file not found: {db_path}")
         con = sqlite3.connect(db_path, timeout=3)
         try:
@@ -71,12 +68,11 @@ def check_sqlite() -> Tuple[str, str]:
         return status_bad(f"DB error: {e}")
 
 def check_parquet_dir() -> Tuple[str, str]:
-    pdir = Path(get_cfg("parquet_dir", r"C:\teevra18\history"))
+    pdir = Path(get_cfg("parquet_dir", r"C:\teevra18\data\parquet"))
     try:
         if not pdir.exists():
             return status_bad(f"Parquet dir missing: {pdir}")
-        # Try write test (create + delete a temp file)
-        tmp = None
+        # Write test
         try:
             fd, tmp = tempfile.mkstemp(prefix="t18_", suffix=".tmp", dir=str(pdir))
             os.close(fd)
@@ -105,13 +101,11 @@ def check_telegram() -> Tuple[str, str]:
         return status_bad(f"Telegram error: {e}")
 
 def check_dhan() -> Tuple[str, str]:
-    # Non-destructive endpoint. We’ll call a safe GET and treat 200 as OK; 401/403 as auth error (still shows host reachable).
     base = get_cfg("dhan.rest_base", "https://api.dhan.co").rstrip("/")
     token = get_cfg("dhan.access_token", "")
     if not token or token.startswith("<"):
         return status_warn("No/placeholder Dhan access_token in config.")
     try:
-        # A read-only order list call; if unauthorized, we’ll still confirm connectivity
         url = f"{base}/orders"
         r = requests.get(url, headers={"access-token": token}, timeout=with_timeout())
         if r.status_code == 200:
@@ -128,26 +122,12 @@ def check_dhan() -> Tuple[str, str]:
 # -----------------------------
 # UI
 # -----------------------------
-st.set_page_config(page_title="Teevra18 — Status", page_icon="✅", layout="wide")
 st.title("M12 • Status Window: API Connectivity")
-
-with st.expander("Config Snapshot", expanded=False):
-    st.write("Using config:", str(DEFAULT_CONFIG_PATH))
-    st.json({
-        "db_path": get_cfg("db_path"),
-        "parquet_dir": get_cfg("parquet_dir"),
-        "telegram": {"bot_token_set": bool(get_cfg("telegram.bot_token"))},
-        "dhan": {
-            "rest_base": get_cfg("dhan.rest_base"),
-            "access_token_set": bool(get_cfg("dhan.access_token"))
-        },
-        "network": {"timeout_seconds": get_cfg("network.timeout_seconds", 6)}
-    })
 
 colA, colB, colC, colD = st.columns(4)
 
 # Re-check button forces rerun
-if st.button("🔄 Re-check"):
+if st.button("🔄 Re-check", key="btn_recheck_status"):
     st.experimental_rerun()
 
 # Run checks
@@ -172,4 +152,4 @@ with colD:
     st.subheader("Parquet Path")
     st.markdown(f"{pq_icon} {pq_msg}")
 
-st.caption("Tip: Use the 🔄 Re-check button after fixing tokens or paths to refresh statuses.")
+st.caption("Tip: Update tokens/paths in teevra18.config.json and hit 🔄 Re-check.")
