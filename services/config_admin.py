@@ -2,6 +2,16 @@
 import os, sqlite3, json, datetime
 from contextlib import closing
 
+# services/config_admin.py (top of file, after imports)
+# Auto-bootstrap if tables are missing
+try:
+    from scripts.db.bootstrap_m12_config_admin import main as _bootstrap
+    _bootstrap()
+except Exception:
+    # If import fails due to relative paths, we simply skip; explicit bootstrap script covers it.
+    pass
+
+
 def _now_iso():
     return datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
