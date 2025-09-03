@@ -31,5 +31,10 @@
       "fees_fill":  "charges_at_fill",
       "fees_exit":  "charges_at_exit"
     }
-  }
+  },
+  "map": [
+    { "src": "services/config_admin.py", "dst": "services/config_admin.py" },
+    { "src": "app/ui/pages/120_Admin_Config.py", "dst": "app/ui/pages/120_Admin_Config.py" },
+    { "src": "app/ui/pages/StrategyLab.py", "dst": "app/ui/pages/StrategyLab.py" }
+  ]
 }
