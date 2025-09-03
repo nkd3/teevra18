@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import sys, json
 from pathlib import Path
 import streamlit as st
@@ -65,4 +65,5 @@ with get_conn() as conn:
         "FROM runs WHERE kind='paper' ORDER BY id DESC LIMIT 50"
     )
     st.dataframe(df_runs, use_container_width=True, height=360)
+
 

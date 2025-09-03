@@ -70,3 +70,4 @@ with colR:
                 restore_config(chosen_id, actor="ui-admin")
             st.success(f"Config {chosen_id} restored to active.")
             st.rerun()
+

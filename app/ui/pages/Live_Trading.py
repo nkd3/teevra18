@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import sys, json
 from pathlib import Path
 import streamlit as st
@@ -70,4 +70,5 @@ with get_conn() as conn:
     st.dataframe(df_runs, use_container_width=True, height=360)
 
     st.info("During Live sessions, alerts fire (Telegram) and you place orders in Zerodha manually. This page logs session state only.")
+
 

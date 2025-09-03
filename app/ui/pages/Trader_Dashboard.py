@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import sys
 from pathlib import Path
 import pandas as pd
@@ -193,4 +193,5 @@ with tab_health:
                 st.dataframe(df_o, use_container_width=True, height=240)
         else:
             st.info("No `ops_log` table yet.")
+
 

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import json
 import sqlite3
 from pathlib import Path
@@ -233,3 +233,4 @@ except Exception as e:
     st.caption(f"(Could not list strategies: {e})")
 
 conn.close()
+

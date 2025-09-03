@@ -1,4 +1,4 @@
-﻿import streamlit as st
+import streamlit as st
 import sqlite3
 from pathlib import Path
 from auth import require_role
@@ -24,6 +24,7 @@ st.dataframe(users, use_container_width=True, column_config={
     3: st.column_config.CheckboxColumn("Active"),
     4: st.column_config.TextColumn("Created At"),
 })
+
 
 
 

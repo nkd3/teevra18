@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from t18_common.db import get_conn, table_exists, columns, read_df, first_existing
 import sys
 from pathlib import Path
@@ -66,6 +66,7 @@ with tab_health:
             st.dataframe(df_o, use_container_width=True, height=240)
         else:
             st.info("No `ops_log` yet.")
+
 
 
 

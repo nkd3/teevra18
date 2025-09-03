@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from t18_common.db import get_conn, table_exists, columns, read_df, first_existing
 import sys, json
 from pathlib import Path
@@ -170,6 +170,7 @@ with get_conn() as conn:
             conn.commit()
             st.success("New policy created from template.")
             st.rerun()
+
 
 
 
