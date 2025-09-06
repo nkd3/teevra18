@@ -1,0 +1,25 @@
+﻿:root{
+  --bg:#0b0f14; --panel:#111826; --panel-2:#0e1521; --text:#d6dee7; --muted:#9aa7b3;
+  --brand:#3cd6eb; --border:rgba(255,255,255,.08); --shadow:0 10px 28px rgba(0,0,0,.45);
+}
+
+/* Remove all Streamlit chrome (sidebar, header toolbar, footer, menu) */
+[data-testid="stSidebar"], header, footer, #MainMenu { display:none !important; }
+
+/* Remove default top padding and fully center the page */
+html, body, .stApp { background:#0b0f14 !important; color:var(--text) !important; }
+.main .block-container { padding-top: 0 !important; padding-bottom: 0 !important; margin-top: 0 !important; }
+
+/* Center shell */
+.t18-center { min-height: 100vh; display:flex; align-items:center; justify-content:center; }
+.t18-card {
+  width: 520px; max-width: 92vw;
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  border: 1px solid var(--border); border-radius: 18px;
+  padding: 28px 26px 22px; box-shadow: var(--shadow);
+}
+.t18-logo { display:block; margin: 0 auto 12px auto; width:86px; height:auto; border-radius:10px; }
+.t18-title { text-align:center; margin: 2px 0 14px 0; }
+.t18-title h2 { margin:0; font-weight:900; letter-spacing:.3px; }
+.t18-sub { color:var(--muted); font-size:12.5px; text-align:center; margin:-4px 0 14px 0; }
+.t18-foot{ margin-top:12px; color:var(--muted); font-size:12px; text-align:center; border-top:1px dashed var(--border); padding-top:10px;}
