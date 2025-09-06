@@ -1,0 +1,67 @@
+/* Teevra18 Dark UI */
+:root {
+  --bg: #0b0f14;
+  --panel: #121821;
+  --panel-2: #0f141c;
+  --text: #d6dee7;
+  --muted: #9aa7b3;
+  --brand: #3cd6eb; /* from brand kit */
+  --accent: #7dd3fc;
+  --green: #22c55e;
+  --red: #ef4444;
+  --amber: #f59e0b;
+  --card-shadow: 0 6px 20px rgba(0,0,0,.35);
+}
+
+.stApp, .main, body {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+/* Top strip */
+.t18-top-strip {
+  background: linear-gradient(180deg, #0f141c, #0b0f14);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Chip + light */
+.t18-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: 999px; font-size: 12px;
+  background: #0e1621; border: 1px solid rgba(255,255,255,0.08);
+}
+.t18-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.ok .t18-dot { background: var(--green); box-shadow: 0 0 12px var(--green); }
+.warn .t18-dot { background: var(--amber); box-shadow: 0 0 12px var(--amber); }
+.err .t18-dot { background: var(--red); box-shadow: 0 0 12px var(--red); }
+
+/* Cards */
+.t18-card {
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px; padding: 16px; box-shadow: var(--card-shadow);
+}
+.t18-card h4 { margin: 0 0 6px 0; color: var(--muted); font-weight: 600; }
+.t18-card .big { font-size: 26px; font-weight: 800; }
+
+/* Mini panels */
+.t18-mini {
+  background: var(--panel-2);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px; padding: 12px;
+}
+
+/* Chart container */
+.t18-chart {
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px; padding: 12px; box-shadow: var(--card-shadow);
+}
+
+/* Watchlist/alerts table tweaks */
+.t18-table th, .t18-table td { padding: 6px 8px; font-size: 12.5px; }
+.t18-table thead { color: var(--muted); }
