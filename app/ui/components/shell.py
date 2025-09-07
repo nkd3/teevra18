@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Teevra18 UI Shell (avatar-only dropdown; CSS-only toggle; same-tab Profile/Logout; logout -> LandingPage)
+Teevra18 UI Shell (profile avatar + dropdown, in-page sub-nav)
 """
 
 from pathlib import Path
@@ -8,12 +8,13 @@ import base64, json, sqlite3
 from datetime import datetime
 import streamlit as st
 
+# ========== Config paths ==========
 APP_ROOT = Path(r"C:\teevra18")
 DATA_DIR = APP_ROOT / "data"
 ASSETS_DIR = APP_ROOT / "assets"
 PROFILE_JSON = DATA_DIR / "profiles.json"  # {"<username>":{"display_name":"...", "avatar_path":"..."}}
 
-# ========== CSS ==========
+# ========= Styles (dark, responsive, fixed heights) =========
 _CSS = """
 <style>
 :root { color-scheme: dark; --t18-toolbar-offset: 3.8rem; }
@@ -23,10 +24,10 @@ body, .stApp { background:#0E1117; }
 /* Top bar BELOW Streamlit toolbar */
 .t18-topbar{position:sticky;top:var(--t18-toolbar-offset);z-index:1000;background:#0E1117;
   border-bottom:1px solid #22262E;padding:.5rem .6rem;}
-.t18-topgrid{display:grid;grid-template-columns:200px 1fr 420px 220px;gap:.6rem;align-items:center;}
+.t18-topgrid{display:grid;grid-template-columns:200px 1fr 380px 210px;gap:.6rem;align-items:center;}
 @media(max-width:1280px){ .t18-topgrid{grid-template-columns:160px 1fr;row-gap:.6rem;} .t18-status{justify-items:start;} }
 
-/* Logo-only */
+/* Logo-only (title removed) */
 .t18-logo{display:inline-flex;align-items:center;gap:.5rem;}
 .t18-logo img{width:44px;height:44px;border-radius:50%;border:1px solid #2a2f3a;object-fit:cover;}
 
@@ -45,7 +46,7 @@ body, .stApp { background:#0E1117; }
 .t18-light{width:10px;height:10px;border-radius:50%;border:1px solid #2a2f3a;}
 .t18-ok{background:#22c55e;} .t18-bad{background:#ef4444;} .t18-amb{background:#f59e0b;}
 
-/* Secondary sub-nav (radio -> tight pills) */
+/* Secondary sub-nav (radio → tight pills) */
 .t18-subnav-wrap{margin-top:.6rem;}
 .t18-subnav .stRadio > div[role="radiogroup"]{display:flex;gap:.35rem;flex-wrap:wrap;justify-content:flex-start;}
 .t18-subnav .stRadio div[role="radio"]{border:1px solid #283042;background:#121621;color:#cdd3df;
@@ -53,9 +54,11 @@ body, .stApp { background:#0E1117; }
 .t18-subnav .stRadio div[role="radio"][aria-checked="true"]{color:#fff;border-color:#a16207;box-shadow:inset 0 0 0 1px #a16207;}
 .t18-subnav .stRadio svg{display:none;} .t18-subnav .stRadio input{display:none !important;} .t18-subnav .stRadio label{margin:0;}
 
-/* Generic cards + KPI bubbles */
+/* Generic cards + frozen heights */
 .t18-section{margin-top:.8rem;}
 .t18-card{border:1px solid #283042;background:#0f1420;border-radius:10px;padding:.9rem;}
+
+/* KPI grid (6) fixed bubbles */
 .t18-kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:.8rem;}
 @media(max-width:1600px){.t18-kpi-grid{grid-template-columns:repeat(3,1fr);} }
 @media(max-width:1100px){.t18-kpi-grid{grid-template-columns:repeat(2,1fr);} }
@@ -63,41 +66,21 @@ body, .stApp { background:#0E1117; }
 .t18-kpi h5{margin:0;color:#cfd6e6;font-weight:600;font-size:.9rem;}
 .t18-kpi .v{font-size:1.6rem;color:#ffffff;font-weight:800;}
 
-/* Workspaces */
+/* Workspaces: 70:30 + full width */
 .t18-row-7030{display:grid;grid-template-columns:7fr 3fr;gap:.9rem;}
 @media(max-width:1280px){.t18-row-7030{grid-template-columns:1fr;}}
 .t18-wsA,.t18-wsB{min-height:320px;}
 .t18-wsFull{min-height:280px;}
 
-/* User area (avatar dropdown) */
-.t18-userwrap{display:flex;justify-content:flex-end;align-items:center;width:100%;}
-.t18-ava{position:relative;display:inline-block;}
-.t18-avaimg{
-  width:38px;height:38px;border-radius:50%;border:1px solid #2a2f3a;overflow:hidden;cursor:pointer;
-  background-size:cover;background-position:center;background-repeat:no-repeat;
-  display:flex;align-items:center;justify-content:center;
-}
-.t18-avaimg.noimg{
-  background:radial-gradient(100% 100% at 50% 0%, #1e293b 0%, #0b1220 100%);
-  color:#cfe1ff;font-weight:700;font-size:14px;
-}
-/* checkbox toggle */
-.t18-ava .ava-toggle{display:none;}
-.t18-menu{
-  position:absolute; right:0; top:46px; min-width:210px;
-  background:#0F1522; border:1px solid #2b3140; border-radius:10px;
-  box-shadow:0 8px 20px rgba(0,0,0,.35); padding:.45rem; display:none; z-index:10000;
-  font-size:10.5px; color:#d7dbe6;
-}
-.t18-menu .hd{opacity:.85; padding:.2rem .35rem .45rem .35rem;}
-.t18-menu .item{padding:.35rem .45rem;border-radius:7px;cursor:pointer;}
-.t18-menu .item:hover{background:#162032;}
-/* show menu when checked */
-.t18-ava .ava-toggle:checked ~ .t18-menu{display:block;}
+/* User area (avatar + name) */
+.t18-userwrap{display:flex;justify-content:flex-end;align-items:center;gap:.55rem;}
+.t18-ava{width:38px;height:38px;border-radius:50%;border:1px solid #2a2f3a;background:#0d111a;overflow:hidden;}
+.t18-ava img{width:100%;height:100%;object-fit:cover;}
+.t18-username{color:#e7eaf3;font-weight:600;}
 </style>
 
 <script>
-/* Keep spacing below Streamlit toolbar (no dropdown JS here) */
+/* Dynamically measure Streamlit toolbar height to avoid overlap with Deploy */
 (function(){
   function upd(){
     try{
@@ -112,7 +95,7 @@ body, .stApp { background:#0E1117; }
 </script>
 """
 
-# ---------- config/db ----------
+# ========= Config / DB helpers =========
 def _read_config():
     for p in [APP_ROOT / "teevra18.config.json", Path("teevra18.config.json")]:
         if p.exists():
@@ -138,7 +121,7 @@ def get_system_health():
     }
     return {"checks":checks,"summary":{"green":sum(checks.values()),"amber":0,"red":list(checks.values()).count(False)}}
 
-# ---------- profiles ----------
+# ========= Profile helpers =========
 def _profiles_load() -> dict:
     try:
         if PROFILE_JSON.exists():
@@ -147,19 +130,23 @@ def _profiles_load() -> dict:
         pass
     return {}
 
+def _profiles_save(profiles: dict):
+    PROFILE_JSON.parent.mkdir(parents=True, exist_ok=True)
+    PROFILE_JSON.write_text(json.dumps(profiles, indent=2), encoding="utf-8")
+
 def get_display_name_and_avatar(username: str):
-    prof = _profiles_load().get((username or "").strip().lower(), {})
-    disp = prof.get("display_name", username or "")
+    """Return (display_name, avatar_path or None)."""
+    prof = _profiles_load().get(username.lower().strip(), {})
+    disp = prof.get("display_name", username)
     av   = prof.get("avatar_path")
     return disp, av
 
-def _avatar_b64_css_bg(path: Path|str|None) -> str|None:
-    p = Path(path) if path else None
-    if p and p.exists():
-        b64 = base64.b64encode(p.read_bytes()).decode("ascii")
-        mime = "png" if p.suffix.lower()==".png" else "jpeg"
-        return f"url('data:image/{mime};base64,{b64}')"
-    return None
+def _avatar_img_tag(path: Path|None) -> str:
+    if path and Path(path).exists():
+        b64 = base64.b64encode(Path(path).read_bytes()).decode("ascii")
+        mime = "png" if str(path).lower().endswith(".png") else "jpeg"
+        return f'<img src="data:image/{mime};base64,{b64}" alt="avatar"/>'
+    return ""
 
 def _logo_img() -> str:
     for p in [ASSETS_DIR / "Teevra18_Logo.png", ASSETS_DIR / "Teevra18_Logo.ico"]:
@@ -169,7 +156,7 @@ def _logo_img() -> str:
             return f'<img src="data:image/{mime};base64,{b64}" alt="logo"/>'
     return '<div style="width:44px;height:44px;border-radius:50%;border:1px solid #2a2f3a;"></div>'
 
-# ---------- data fetchers ----------
+# ========= Data fetchers (defensive) =========
 def _df(conn, q, args=()):
     import pandas as pd
     cur=conn.cursor(); cur.execute(q, args)
@@ -209,8 +196,7 @@ def fetch_orders_df(limit=25):
           FROM paper_orders ORDER BY created_at DESC LIMIT ?
         """,(limit,))
     except Exception: return None
-    finally:
-        conn.close()
+    finally: conn.close()
 
 def fetch_signals_df(limit=25):
     conn=_conn()
@@ -221,85 +207,44 @@ def fetch_signals_df(limit=25):
           FROM signals ORDER BY created_at DESC LIMIT ?
         """,(limit,))
     except Exception: return None
-    finally:
-        conn.close()
+    finally: conn.close()
 
 def fetch_positions_df():
     conn=_conn()
     if not conn: return None
     try:
         return _df(conn, """
-          SELECT symbol AS Symbol, qty_open AS Qty, avg_price AS AvgPrice, mtM AS MtM, risk AS Risk
+          SELECT symbol AS Symbol, qty_open AS Qty, avg_price As AvgPrice, mtM AS MtM, risk AS Risk
           FROM positions ORDER BY abs(mtM) DESC
         """)
     except Exception: return None
-    finally:
-        conn.close()
+    finally: conn.close()
 
-# ---------- UI ----------
+# ========= Renderers =========
 def render_topbar(active_primary:str):
-    st.markdown(_CSS, unsafe_allow_html=True)
-
-    # --- helper: clear the action flag so it doesn't "follow" to the next page ---
-    def _clear_action_param():
-        try:
-            if "t18_action" in st.query_params:
-                del st.query_params["t18_action"]
-        except Exception:
-            pass
-
-    # Handle avatar menu actions via query params (NO layout changes below)
-    act = st.query_params.get("t18_action")
-    if isinstance(act, list):
-        act = act[0]
-
-    if act == "profile":
-        _clear_action_param()
-        # close menu (if you track it in session elsewhere)
-        st.session_state["t18_menu_open"] = False
-        try:
-            st.switch_page("pages/My_Profile.py")
-        except Exception:
-            # Fallback: push a go param and rerun (same tab)
-            st.query_params["_go"] = "My_Profile.py"
-            st.rerun()
-        st.stop()
-
-    elif act == "logout":
-        _clear_action_param()
-        st.session_state["t18_menu_open"] = False
+    # ----- Handle pending Logout outside callbacks (reliable redirect) -----
+    if st.session_state.pop("__t18_do_logout", False):
         for k in ["auth_user","t18_auth_user","user"]:
-            if k in st.session_state:
-                del st.session_state[k]
-        # Prefer server-side nav to avoid blank new tabs
+            if k in st.session_state: del st.session_state[k]
+        # Try native page switch first
         try:
             st.switch_page("ui/LandingPage.py")
         except Exception:
-            # As a safe fallback, clear all params and rerun to app root
-            try:
-                st.query_params.clear()
-            except Exception:
-                pass
-            st.rerun()
+            # Hard fallback: go to app root
+            st.markdown("<script>window.location.replace('/');</script>", unsafe_allow_html=True)
         st.stop()
 
+    st.markdown(_CSS, unsafe_allow_html=True)
     h=get_system_health(); checks,summary=h["checks"],h["summary"]
 
-    auth = st.session_state.get("auth_user") or {"name": st.session_state.get("t18_auth_user","")}
-    username = (auth.get("name") or "").strip()
+    # auth user
+    auth = st.session_state.get("auth_user") or {"name": st.session_state.get("t18_auth_user","<user>")}
+    username = (auth.get("name") or "<user>")
     display_name, avatar_path = get_display_name_and_avatar(username)
-
-    # Build avatar node (image bg vs initial)
-    bg = _avatar_b64_css_bg(avatar_path)
-    if bg:
-        ava_label = f'<label for="t18avacb" class="t18-avaimg" style="background-image:{bg}"></label>'
-    else:
-        initial = (username[:1].upper() or "U") if username else "U"
-        ava_label = f'<label for="t18avacb" class="t18-avaimg noimg">{initial}</label>'
 
     with st.container(border=False):
         st.markdown('<div class="t18-topbar"><div class="t18-topgrid">', unsafe_allow_html=True)
-        c1, c2, c3, c4 = st.columns([0.8, 3.2, 2.2, 1.2], gap="small")
+        c1,c2,c3,c4=st.columns([0.8,3,1.6,1.2],gap="small")
 
         with c1:
             st.markdown(f'<div class="t18-logo">{_logo_img()}</div>', unsafe_allow_html=True)
@@ -333,55 +278,61 @@ def render_topbar(active_primary:str):
             """, unsafe_allow_html=True)
 
         with c4:
-            # CSS-only dropdown: hidden checkbox + label (avatar) + menu.
-            # NOTE: unchanged — still sets t18_action via URL param in same tab.
-            avatar_html = """
-<div class="t18-userwrap">
-  <div class="t18-ava">
-    <input id="t18avacb" class="ava-toggle" type="checkbox" />
-    __AVA_LABEL__
-    <div class="t18-menu">
-      <div class="hd">You're logged in as <b>__USERNAME__</b></div>
-      <div class="item" onclick="(function(){
-        const p=new URLSearchParams(window.location.search);
-        p.set('t18_action','profile');
-        window.location.search=p.toString();
-      })()">My Profile</div>
-      <div class="item" onclick="(function(){
-        const p=new URLSearchParams(window.location.search);
-        p.set('t18_action','logout');
-        window.location.search=p.toString();
-      })()">Logout</div>
-    </div>
-  </div>
-</div>
-"""
-            avatar_html = (avatar_html
-                           .replace("__AVA_LABEL__", ava_label)
-                           .replace("__USERNAME__", (username or "—")))
-            st.markdown(avatar_html, unsafe_allow_html=True)
+            # Right user area with popover dropdown (unchanged UI)
+            st.markdown('<div class="t18-userwrap">', unsafe_allow_html=True)
+            st.markdown(f'<div class="t18-ava">{_avatar_img_tag(avatar_path)}</div>', unsafe_allow_html=True)
+
+            _supports_popover = hasattr(st, "popover")
+            if _supports_popover:
+                with st.popover(display_name):
+                    # My Profile: keep your working behavior
+                    if st.button("My Profile", use_container_width=True, key="t18_profile"):
+                        try:
+                            st.switch_page("pages/My_Profile.py")
+                        except Exception:
+                            st.query_params["_go"] = "My_Profile.py"
+                            st.rerun()
+                    # Logout: set a flag and let top-of-function handle redirect
+                    if st.button("Logout", use_container_width=True, key="t18_logout"):
+                        st.session_state["__t18_do_logout"] = True
+                        # do NOT call st.rerun() inside callback; Streamlit reruns automatically
+            else:
+                coln1, coln2 = st.columns([1,1])
+                if coln1.button("My Profile", key="t18_profile2"):
+                    try:
+                        st.switch_page("pages/My_Profile.py")
+                    except Exception:
+                        st.query_params["_go"] = "My_Profile.py"; st.rerun()
+                if coln2.button("Logout", key="t18_logout2"):
+                    st.session_state["__t18_do_logout"] = True
+
+            st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown('</div></div>', unsafe_allow_html=True)
 
-    # Primary nav routing (query param → switch_page) — unchanged
-    tgt = st.query_params.get("_go", None)
-    if isinstance(tgt, list):
-        tgt = tgt[0]
+    # Primary nav routing (query param → switch_page)
+    tgt=st.query_params.get("_go", None)
     if tgt:
-        try:
-            st.switch_page(f"pages/{tgt}")
-        except Exception:
-            pass
+        try: st.switch_page(f"pages/{tgt}")
+        except Exception: pass
 
 def render_subnav_choice(default="Overview"):
+    """Horizontal radio that looks like pills; updates SAME page; persists to ?sub=."""
     labels = ["Overview","Orders","Signals","Health and Ops"]
     qp = st.query_params.get("sub", default)
     if isinstance(qp, list): qp = qp[0]
     if qp not in labels: qp = default
     sel_index = labels.index(qp)
     st.markdown('<div class="t18-subnav-wrap"><div class="t18-subnav">', unsafe_allow_html=True)
-    selection = st.radio("", options=labels, index=sel_index, horizontal=True,
-                         label_visibility="collapsed", key="t18_sub_radio")
+    # Fixes the 'empty label' warning while keeping UI identical
+    selection = st.radio(
+        "Sub navigation",
+        options=labels,
+        index=sel_index,
+        horizontal=True,
+        label_visibility="collapsed",
+        key="t18_sub_radio"
+    )
     st.markdown('</div></div>', unsafe_allow_html=True)
     if st.query_params.get("sub") != selection:
         st.query_params["sub"] = selection
