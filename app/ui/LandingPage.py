@@ -25,19 +25,17 @@ st.markdown("""
 [data-testid="collapsedControl"] {display: none;}
 /* Remove any extra padding/margin at the top */
 .block-container {padding-top: 1rem;}
-
 /* Center the logo */
 .t18-logo {
   display: block;
   margin-left: auto;
   margin-right: auto;
   margin-bottom: 12px;
-  width: 280px;       /* adjust size as you like */
+  width: 280px;
   height: auto;
 }
 </style>
 <script>
-// Hide any "pill/decoration" bar at the very top
 (function() {
   function killTopPill() {
     const root = document.querySelector('.main .block-container');
@@ -51,9 +49,7 @@ st.markdown("""
       const isTopish = r.top < 100;
       const isShort  = r.height <= 70;
       const isPill   = br >= 8 || bg.includes('gradient');
-      if (isTopish && isShort && isPill) {
-        el.style.display = 'none';
-      }
+      if (isTopish && isShort && isPill) el.style.display = 'none';
     }
   }
   killTopPill();
@@ -78,31 +74,7 @@ def _logo_html() -> str:
     return '<h2 style="text-align:center;">Teevra18</h2>'
 
 # --------------------------------------------------------
-# 4) Safe routing to first available dashboard
-# --------------------------------------------------------
-def _switch_to_first_existing():
-    here = Path(__file__).parent
-    pages_dir = here / "pages"
-    pages_dir.mkdir(exist_ok=True)
-
-    preferred = ["Home_Dashboard.py", "Control_Panel.py", "Trader_Dashboard.py"]
-    for name in preferred:
-        if (pages_dir / name).is_file():
-            st.switch_page(f"pages/{name}")
-            return True
-
-    found = [f"pages/{p.name}" for p in pages_dir.glob("*.py")]
-    st.success("Login successful, but no dashboard found.")
-    if found:
-        st.info("Available pages:")
-        for f in sorted(found):
-            st.write(f"- {f}")
-    else:
-        st.error("ui/pages/ is empty. Place a dashboard there (e.g. Home_Dashboard.py).")
-    return False
-
-# --------------------------------------------------------
-# 5) UI — Logo + Login form only
+# 4) UI — Logo + Login form
 # --------------------------------------------------------
 st.markdown('<div style="text-align:center;margin-top:2rem;">', unsafe_allow_html=True)
 st.markdown(_logo_html(), unsafe_allow_html=True)
@@ -112,6 +84,9 @@ st.caption("Welcome to Teevra18 — please sign in to continue.")
 username = st.text_input("Username", key="t18_user")
 password = st.text_input("Password", type="password", key="t18_pass")
 
+# Ensure 'user' always exists (prevents NameError on reruns)
+user = None
+
 if st.button("Sign In", type="primary"):
     try:
         user = verify_credentials(username, password)
@@ -120,9 +95,14 @@ if st.button("Sign In", type="primary"):
         user = None
 
     if user:
+        # Normalise and persist session identity for all pages
+        username_norm = (user.get("username") or username or "").strip()
+        st.session_state["t18_auth_user"] = username_norm
+        st.session_state["auth_user"] = {"name": username_norm}
         st.session_state.user = user
-        st.session_state["t18_auth_user"] = (user.get("username") or username).strip().lower()
-        _switch_to_first_existing()
+
+        # Route to Dashboard in pages/
+        st.switch_page("pages/Dashboard_Shell.py")
     else:
         st.error("Invalid credentials or inactive user.")
 
