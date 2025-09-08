@@ -7,6 +7,7 @@ from pathlib import Path
 import base64, json, sqlite3
 from datetime import datetime
 import streamlit as st
+from ui.components.top_nav import render_top_nav
 
 # ========== Config paths ==========
 APP_ROOT = Path(r"C:\teevra18")
@@ -221,6 +222,7 @@ def fetch_positions_df():
     finally: conn.close()
 
 # ========= Renderers =========
+render_top_nav(st.session_state.get("user", None))
 def render_topbar(active_primary:str):
     # ----- Handle pending Logout outside callbacks (reliable redirect) -----
     if st.session_state.pop("__t18_do_logout", False):

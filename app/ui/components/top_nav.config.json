@@ -1,0 +1,15 @@
+{
+  "brand": {
+    "title": "Teevra18",
+    "icon": "🧭",
+    "logo_path": "C:\\teevra18\\assets\\Teevra18_Logo.png"
+  },
+  "items": [
+    { "label": "DASHBOARD",      "icon": "🏠", "target": "Home_Dashboard.py" },
+    { "label": "CONTROL PANEL",  "icon": "🧭", "target": "pages/Control_Panel.py" },
+    { "label": "STRATEGY LAB",   "icon": "🧪", "target": "pages/Strategy_Lab.py" },
+    { "label": "TRADING",        "icon": "🟢", "target": "pages/Live_Trading.py" },
+    { "label": "PORTFOLIO",      "icon": "💼", "target": "pages/Portfolio.py" },
+    { "label": "REPORTS",        "icon": "📊", "target": "pages/Reports.py" }
+  ]
+}
