@@ -24,12 +24,12 @@ if "components.shell" not in _sys.modules:
     _sys.modules["components.shell"] = _sys.modules[__name__]
 
 # ========== Paths ==========
-THIS_FILE   = Path(__file__).resolve()
-UI_ROOT     = THIS_FILE.parents[1]          # C:\teevra18\app\ui
-APP_ROOT    = UI_ROOT.parents[1]            # C:\teevra18
-DATA_DIR    = APP_ROOT / "data"
-ASSETS_DIR  = APP_ROOT / "assets"
-PROFILE_JSON= DATA_DIR / "profiles.json"
+THIS_FILE = Path(__file__).resolve()
+UI_ROOT   = THIS_FILE.parents[1]          # C:\teevra18\app\ui
+APP_ROOT  = UI_ROOT.parents[1]            # C:\teevra18
+DATA_DIR  = APP_ROOT / "data"
+ASSETS_DIR= APP_ROOT / "assets"
+PROFILE_JSON = DATA_DIR / "profiles.json"
 
 # ========= Styles =========
 _CSS = """
@@ -58,6 +58,7 @@ body, .stApp { background:#0E1117; }
   border:1px solid #3b82f6; box-shadow:inset 0 0 0 1px #3b82f6; color:#fff; background:#121621;
   font-size:.78rem;
 }
+/* page_link wrappers inside the nav row */
 .t18-nav [data-testid="stPageLink"]{
   display:inline-flex !important;
   width:auto !important;
@@ -105,10 +106,15 @@ body, .stApp { background:#0E1117; }
 .t18-kpi h5{margin:0;color:#cfd6e6;font-weight:600;font-size:.9rem;}
 .t18-kpi .v{font-size:1.6rem;color:#ffffff;font-weight:800;}
 
-/* User area */
-.t18-userwrap{display:flex;justify-content:flex-end;align-items:center;gap:.55rem;position:relative;}
-.t18-ava{width:38px;height:38px;border-radius:50%;border:1px solid #2a2f3a;background:#0d111a;overflow:hidden;cursor:pointer;}
+.t18-row-7030{display:grid;grid-template-columns:7fr 3fr;gap:.9rem;}
+@media(max-width:1280px){.t18-row-7030{grid-template-columns:1fr;}}
+.t18-wsA,.t18-wsB{min-height:320px;}
+.t18-wsFull{min-height:280px;}
+
+.t18-userwrap{display:flex;justify-content:flex-end;align-items:center;gap:.55rem;}
+.t18-ava{width:38px;height:38px;border-radius:50%;border:1px solid #2a2f3a;background:#0d111a;overflow:hidden;}
 .t18-ava img{width:100%;height:100%;object-fit:cover;}
+.t18-username{color:#e7eaf3;font-weight:600;}
 </style>
 
 <script>
@@ -179,11 +185,6 @@ def _avatar_img_tag(path: Path | None) -> str:
         b64 = base64.b64encode(Path(path).read_bytes()).decode("ascii")
         mime = "png" if str(path).lower().endswith(".png") else "jpeg"
         return f'<img src="data:image/{mime};base64,{b64}" alt="avatar"/>'
-    for p in [ASSETS_DIR / "Teevra18_Logo.png", ASSETS_DIR / "Teevra18_Logo.ico"]:
-        if p.exists():
-            b64 = base64.b64encode(p.read_bytes()).decode("ascii")
-            mime = "png" if p.suffix.lower() == ".png" else "x-icon"
-            return f'<img src="data:image/{mime};base64,{b64}" alt="avatar"/>'
     return ""
 
 def _logo_img() -> str:
@@ -230,12 +231,11 @@ def fetch_orders_df(limit=25):
     if not conn: return None
     try:
         return _df(conn, """
-          SELECT time(created_at) AS Time, symbol AS Symbol, side As Side, qty As Qty, price As Price, status As Status
+          SELECT time(created_at) AS Time, symbol AS Symbol, side AS Side, qty AS Qty, price As Price, status As Status
           FROM paper_orders ORDER BY created_at DESC LIMIT ?
         """,(limit,))
     except Exception: return None
-    finally:
-        conn.close()
+    finally: conn.close()
 
 def fetch_signals_df(limit=25):
     conn=_conn()
@@ -246,20 +246,18 @@ def fetch_signals_df(limit=25):
           FROM signals ORDER BY created_at DESC LIMIT ?
         """,(limit,))
     except Exception: return None
-    finally:
-        conn.close()
+    finally: conn.close()
 
 def fetch_positions_df():
     conn=_conn()
     if not conn: return None
     try:
         return _df(conn, """
-          SELECT symbol AS Symbol, qty_open AS Qty, avg_price As AvgPrice, mtM As MtM, risk As Risk
-        FROM positions ORDER BY abs(mtM) DESC
+          SELECT symbol AS Symbol, qty_open AS Qty, avg_price As AvgPrice, mtM AS MtM, risk As Risk
+          FROM positions ORDER BY abs(mtM) DESC
         """)
     except Exception: return None
-    finally:
-        conn.close()
+    finally: conn.close()
 
 # ========= Page resolver for primary nav =========
 def _first_existing_page(candidates:list[str]) -> str | None:
@@ -273,7 +271,7 @@ def _nav_targets() -> list[tuple[str, str | None]]:
     """Return (LABEL, rel_path or None). Prefers Dashboard_Shell explicitly."""
     return [
         ("DASHBOARD",     _first_existing_page([
-            "pages/Dashboard_Shell.py",
+            "pages/Dashboard_Shell.py",  # <-- prefer this
             "Dashboard_Shell.py",
             "pages/Home_Dashboard.py",
             "Home_Dashboard.py",
@@ -303,9 +301,12 @@ def _nav_targets() -> list[tuple[str, str | None]]:
 
 # ========= Renderers =========
 def render_topbar(active_primary: str):
-    """Render topbar and user dropdown (avatar-triggered)."""
-
-    # Logout redirect (original behavior)
+    """
+    Call this AFTER your page's st.set_page_config(...).
+    Primary nav uses native st.page_link (same-tab). We render them in a single 6-column row,
+    and also force inline via CSS so they never stack vertically.
+    """
+    # Logout redirect
     if st.session_state.pop("__t18_do_logout", False):
         for k in ["auth_user","t18_auth_user","user"]:
             if k in st.session_state: del st.session_state[k]
@@ -332,7 +333,7 @@ def render_topbar(active_primary: str):
         with c1:
             st.markdown(f'<div class="t18-logo">{_logo_img()}</div>', unsafe_allow_html=True)
 
-        # Primary nav
+        # Primary nav — one row of 6 equal columns (no wrap)
         with c2:
             nav = _nav_targets()
             st.markdown('<div class="t18-nav">', unsafe_allow_html=True)
@@ -348,7 +349,7 @@ def render_topbar(active_primary: str):
                             st.markdown(f"<span class='t18-pill-disabled'>{label}</span>", unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # System + Summary
+        # System + Summary inline (unchanged)
         with c3:
             st.markdown(f"""
             <div class="t18-health">
@@ -363,98 +364,45 @@ def render_topbar(active_primary: str):
             </div>
             """, unsafe_allow_html=True)
 
-               # User area — avatar opens the dropdown; Account chip is hidden
+        # User area
         with c4:
-            # give this user area a stable id so our JS can target the right popover button
-            st.markdown('<div class="t18-userwrap" id="t18-userwrap"></div>', unsafe_allow_html=True)
-
-            # Avatar
+            st.markdown('<div class="t18-userwrap">', unsafe_allow_html=True)
             st.markdown(f'<div class="t18-ava">{_avatar_img_tag(avatar_path)}</div>', unsafe_allow_html=True)
 
-            # Keep the working Streamlit popover (label "Account"), but we'll hide its trigger button via JS
-            with st.popover("Account"):
-                st.markdown("### Account")
-                st.caption(f"You're logged in as **{display_name or username}**")
-                st.divider()
-
-                # My Profile (native navigation)
-                st.page_link("pages/My_Profile.py", label="My Profile")
-
-                # Logout (hard redirect; avoids blank screen)
-                if st.button("Logout", use_container_width=True):
-                    for _k in ("auth_user", "t18_auth_user", "user", "__t18_do_logout", "__t18_go_profile"):
-                        if _k in st.session_state:
-                            del st.session_state[_k]
-                    for _tgt in ("ui/LandingPage.py", "LandingPage.py", "pages/LandingPage.py"):
+            if hasattr(st,"popover"):
+                with st.popover(display_name or "<user>"):
+                    if st.button("My Profile", use_container_width=True, key="t18_profile"):
                         try:
-                            st.switch_page(_tgt)
-                            st.stop()
+                            st.switch_page("pages/My_Profile.py")
                         except Exception:
-                            pass
-                    st.markdown("<meta http-equiv='refresh' content='0; url=/'/>", unsafe_allow_html=True)
-                    st.stop()
+                            st.query_params["_go"]="pages/My_Profile.py"; st.rerun()
+                    if st.button("Logout", use_container_width=True, key="t18_logout"):
+                        st.session_state["__t18_do_logout"]=True
+            else:
+                col1,col2=st.columns([1,1])
+                if col1.button("My Profile", key="t18_profile2"):
+                    try:
+                        st.switch_page("pages/My_Profile.py")
+                    except Exception:
+                        st.query_params["_go"]="pages/My_Profile.py"; st.rerun()
+                if col2.button("Logout", key="t18_logout2"):
+                    st.session_state["__t18_do_logout"]=True
+            st.markdown('</div>', unsafe_allow_html=True)
 
-            # Hide the "Account" button and bind avatar->popover reliably (handles rerenders)
-            st.markdown(
-                """
-                <style>
-                  /* Keep layout clean if the button briefly flashes before JS hides it */
-                  #t18-userwrap button[data-t18-pop='1']{
-                    position:absolute !important;
-                    left:-10000px !important;
-                    width:0 !important; height:0 !important;
-                    opacity:0 !important; pointer-events:none !important;
-                    margin:0 !important; padding:0 !important; border:0 !important;
-                  }
-                </style>
-                <script>
-                  (function(){
-                    function bind(){
-                      const wraps = document.querySelectorAll('#t18-userwrap');
-                      const wrap  = wraps[wraps.length-1];
-                      if(!wrap){ setTimeout(bind, 150); return; }
+        st.markdown('</div></div>', unsafe_allow_html=True)
 
-                      // Find the avatar rendered next to the popover
-                      const ava = wrap.parentElement ? wrap.parentElement.querySelector('.t18-ava') : null;
-
-                      // Find the popover trigger button INSIDE this column (the one that shows "Account")
-                      // We search nearest button whose text includes 'Account'
-                      let btn = null;
-                      const btns = (wrap.parentElement || document).querySelectorAll('button');
-                      for (let i = btns.length - 1; i >= 0; i--){
-                        const t = (btns[i].innerText || '').trim();
-                        if (t === 'Account' || t.startsWith('Account')) { btn = btns[i]; break; }
-                      }
-                      if(!ava || !btn){ setTimeout(bind, 150); return; }
-
-                      // Hide the button and mark it so CSS keeps it hidden
-                      if (!btn.getAttribute('data-t18-pop')){
-                        btn.setAttribute('data-t18-pop','1');
-                      }
-
-                      // Bind avatar click -> trigger popover
-                      if (!ava.__t18Bound){
-                        ava.addEventListener('click', function(e){
-                          e.preventDefault(); e.stopPropagation();
-                          btn.click();
-                        }, false);
-                        ava.__t18Bound = true;
-                      }
-                    }
-                    // Initial bind + keep rebinding on rerenders
-                    bind();
-                    const mo = new MutationObserver(function(){ bind(); });
-                    mo.observe(document.body, {childList:true, subtree:true});
-                  })();
-                </script>
-                """,
-                unsafe_allow_html=True
-            )
-
-
-            st.markdown('</div>', unsafe_allow_html=True)  # .t18-userwrap
-
-        st.markdown('</div></div>', unsafe_allow_html=True)  # .t18-topgrid / .t18-topbar
+    # Router is kept (harmless) for other flows
+    tgt = st.query_params.get("_go", None)
+    if isinstance(tgt, list):
+        tgt = tgt[0] if tgt else None
+    if tgt:
+        try:
+            st.switch_page(tgt if tgt.startswith("pages/") else f"pages/{tgt}")
+        except Exception:
+            try:
+                st.switch_page(tgt)
+            except Exception:
+                pass
 
 def render_subnav_choice(default="Overview"):
     """Horizontal radio that looks like pills; updates SAME page; persists to ?sub=."""
