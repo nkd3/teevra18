@@ -45,7 +45,7 @@ def render_top_nav(user_name: str | None = None):
     with c2:
         pill_cols = st.columns(len(items) or 1)
         for i, it in enumerate(items):
-            lbl = f\"{it.get('icon','')} {it.get('label','').upper()}\".strip()
+            lbl = f"{it.get('icon','')} {it.get('label','').upper()}".strip()
             tgt = it.get("target")
             with pill_cols[i]:
                 try:
