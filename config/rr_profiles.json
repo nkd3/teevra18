@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "starter_rr": {
+      "min_rr": 2.0,
+      "max_sl_per_lot": 1000.0,
+      "max_trades_per_day": 50,
+      "notes": "Baseline starter risk/reward profile. Used when no custom profile is specified."
+    }
+  }
+}
