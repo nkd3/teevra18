@@ -99,7 +99,7 @@ if st.button("Sign In", type="primary"):
         username_norm = (user.get("username") or username or "").strip()
         st.session_state["t18_auth_user"] = username_norm
         st.session_state["auth_user"] = {"name": username_norm}
-        st.session_state.user = user
+        st.session_state.user = user  # includes 'role' from auth.verify_credentials
 
         # Route to Dashboard in pages/
         st.switch_page("pages/Dashboard_Shell.py")

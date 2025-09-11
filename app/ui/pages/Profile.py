@@ -10,8 +10,3 @@ if not user:
 st.title("My Profile")
 st.write(f"Username: **{user['username']}**")
 st.write(f"Role: **{user['role']}**")
-
-
-
-
-

@@ -46,5 +46,3 @@ with get_conn() as conn:
         upsert_alert_setting(conn, "telegram", "CHAT_ID", chat_id)
         upsert_alert_setting(conn, "telegram", "ENABLED", "1" if enabled else "0")
         st.success("Saved Telegram settings.")
-
-
