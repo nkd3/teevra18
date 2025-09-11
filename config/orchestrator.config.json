@@ -1,0 +1,16 @@
+﻿{
+  "core": {
+    "db": "C:\\teevra18\\data\\teevra18.db",
+    "matrix": "IGNORE",
+    "rr_profile": "starter_rr",
+    "universe": "IGNORE",
+    "log_file": "C:\\teevra18\\logs\\core_{YYYYMMDD}.log",
+    "extra_args": []
+  },
+  "paper": {
+    "db": "C:\\teevra18\\data\\teevra18.db",
+    "log_file": "C:\\teevra18\\logs\\paper_{YYYYMMDD}.log",
+    "extra_args": []
+  },
+  "eod": { "enabled": true }
+}

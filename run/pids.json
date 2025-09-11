@@ -1,8 +1,8 @@
 {
   "services": {
-    "svc_ingest_dhan": 7876,
-    "svc_quote_snap": 388,
-    "svc_candles": 13804,
-    "svc_chain_snap": 7868
+    "svc_ingest_dhan": 5828,
+    "svc_quote_snap": 11344,
+    "svc_candles": 8888,
+    "svc_chain_snap": 17344
   }
 }
