@@ -170,8 +170,3 @@ with get_conn() as conn:
             conn.commit()
             st.success("New policy created from template.")
             st.rerun()
-
-
-
-
-

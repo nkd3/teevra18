@@ -66,8 +66,3 @@ with tab_health:
             st.dataframe(df_o, use_container_width=True, height=240)
         else:
             st.info("No `ops_log` yet.")
-
-
-
-
-
